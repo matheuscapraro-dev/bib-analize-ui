@@ -12,10 +12,10 @@ export const FIELD_MAP: Record<string, string> = {
   _FWCI: "FWCI", _CITE_PERCENTILE: "Percentil de Citação",
   _TOP_1PCT: "Top 1% Citados", _TOP_10PCT: "Top 10% Citados",
   _GLOBAL_SOUTH: "Sul Global", _CONTINENTS: "Continentes",
-  _N_COUNTRIES: "Nº Países Distintos", _N_INSTITUTIONS: "Nº Instituições Distintas",
+  _N_COUNTRIES: "Nº de Países Distintos", _N_INSTITUTIONS: "Nº de Instituições Distintas",
   _INST_TYPES: "Tipos de Instituição", _CITE_TRAJECTORY: "Trajetória de Citações",
-  _RETRACTED: "Retratado", _SDG: "ODS", _INDEXED: "Indexado Em",
-  _OA_URL: "URL Acesso Aberto",
+  _RETRACTED: "Retratado", _SDG: "ODS", _INDEXED: "Indexado em",
+  _OA_URL: "URL de Acesso Aberto",
 };
 
 export const NUMERIC_FIELDS = [

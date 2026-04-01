@@ -1,5 +1,6 @@
 import type { BibWork } from "@/types/bibliometric";
 import { LANG_MAP, OA_STATUS_MAP } from "./constants";
+import { hasBooleanOperators, booleanPostFilter } from "./boolean-filter";
 
 const OPENALEX_BASE = "https://api.openalex.org";
 const PER_PAGE = 100;
@@ -175,8 +176,23 @@ function workToRow(work: Record<string, unknown>): Partial<BibWork> {
   return row as Partial<BibWork>;
 }
 
+export interface OpenAlexTopic {
+  id: string;
+  display_name: string;
+  description: string;
+  works_count: number;
+  subfield: { id: string; display_name: string };
+  field: { id: string; display_name: string };
+  domain: { id: string; display_name: string };
+}
+
+export type SearchScope = "title_and_abstract" | "title" | "fulltext";
+
 export interface OpenAlexSearchParams {
   topic?: string;
+  topicIds?: string[];
+  topicFilterMode?: "search" | "topics";
+  searchScope?: SearchScope;
   author?: string;
   source?: string;
   institution?: string;
@@ -187,8 +203,14 @@ export interface OpenAlexSearchParams {
   language?: string;
   oaOnly?: boolean;
   hasAbstract?: boolean;
+  strictBoolean?: boolean;
+  rawAffiliation?: string;
+  authorIds?: string;
+  institutionId?: string;
+  indexedIn?: string;
   sort?: string;
   maxRecords?: number;
+  email?: string;
   apiKey?: string;
 }
 
@@ -196,7 +218,20 @@ function buildFilters(params: OpenAlexSearchParams): { search: string | null; fi
   const filters: string[] = [];
   let search: string | null = null;
 
-  if (params.topic) search = params.topic;
+  const mode = params.topicFilterMode ?? "search";
+
+  if (mode === "topics" && params.topicIds?.length) {
+    // Topic taxonomy mode: filter by classified topic IDs
+    const ids = params.topicIds.map((id) => id.replace("https://openalex.org/", "")).join("|");
+    filters.push(`topics.id:${ids}`);
+    if (params.topic) {
+      search = params.topic;
+    }
+  } else if (params.topic) {
+    // Texto livre → search param (fulltext com relevância) — idêntico ao Python
+    search = params.topic;
+  }
+
   if (params.author) filters.push(`authorships.author.display_name.search:${params.author}`);
   if (params.source) filters.push(`primary_location.source.display_name.search:${params.source}`);
   if (params.institution) filters.push(`authorships.institutions.display_name.search:${params.institution}`);
@@ -215,24 +250,47 @@ function buildFilters(params: OpenAlexSearchParams): { search: string | null; fi
   }
   if (params.docType) filters.push(`type:${params.docType}`);
   if (params.language) filters.push(`language:${params.language}`);
+  if (params.rawAffiliation) {
+    filters.push(`raw_affiliation_strings.search:${params.rawAffiliation}`);
+  }
+  if (params.authorIds) {
+    const ids = params.authorIds.split(/[,;\s]+/).map(s => s.trim()).filter(Boolean).join("|");
+    if (ids) filters.push(`authorships.author.id:${ids}`);
+  }
+  if (params.institutionId) {
+    const id = params.institutionId.trim().replace("https://openalex.org/", "");
+    if (id) filters.push(`institutions.id:${id}`);
+  }
+  if (params.indexedIn) filters.push(`indexed_in:${params.indexedIn}`);
   if (params.oaOnly) filters.push("open_access.is_oa:true");
   if (params.hasAbstract) filters.push("has_abstract:true");
-  filters.push("is_retracted:false");
+
+  // System filter — only add when there are user-specified filters or search
+  if (search || filters.length > 0) {
+    filters.push("is_retracted:false");
+  }
 
   return { search, filter: filters.length ? filters.join(",") : null };
 }
 
 export async function getOpenAlexCount(params: OpenAlexSearchParams): Promise<number> {
   const { search, filter } = buildFilters(params);
+  if (!search && !filter) throw new Error("Nenhum filtro ou busca definido.");
   const urlParams = new URLSearchParams();
   urlParams.set("per_page", "1");
-  urlParams.set("mailto", CONTACT_EMAIL);
-  if (params.apiKey) urlParams.set("api_key", params.apiKey);
+  if (params.apiKey) {
+    urlParams.set("api_key", params.apiKey);
+  } else {
+    urlParams.set("mailto", params.email || CONTACT_EMAIL);
+  }
   if (search) urlParams.set("search", search);
   if (filter) urlParams.set("filter", filter);
 
   const resp = await fetch(`${OPENALEX_BASE}/works?${urlParams}`);
-  if (!resp.ok) throw new Error(`OpenAlex error: ${resp.status}`);
+  if (!resp.ok) {
+    const body = await resp.text().catch(() => "");
+    throw new Error(`OpenAlex error ${resp.status}: ${body.slice(0, 200)}`);
+  }
   const data = await resp.json();
   return data.meta?.count ?? 0;
 }
@@ -242,25 +300,38 @@ export async function fetchOpenAlexWorks(
   onProgress?: (fetched: number, total: number) => void,
 ): Promise<Partial<BibWork>[]> {
   const { search, filter } = buildFilters(params);
+  if (!search && !filter) throw new Error("Nenhum filtro ou busca definido.");
   const maxRecords = params.maxRecords ?? 1000;
-  const sort = params.sort ?? "relevance_score:desc";
+  // relevance_score requires a search query — fall back to cited_by_count when no search
+  let sort = params.sort ?? "relevance_score:desc";
+  if (!search && sort.startsWith("relevance_score")) {
+    sort = "cited_by_count:desc";
+  }
+  const useBoolean = params.strictBoolean !== false && !!params.topic && hasBooleanOperators(params.topic);
+  const internalMax = useBoolean ? maxRecords * 5 : maxRecords;
 
   const urlParams = new URLSearchParams();
   urlParams.set("per_page", String(PER_PAGE));
   urlParams.set("cursor", "*");
-  urlParams.set("mailto", CONTACT_EMAIL);
-  if (params.apiKey) urlParams.set("api_key", params.apiKey);
+  if (params.apiKey) {
+    urlParams.set("api_key", params.apiKey);
+  } else {
+    urlParams.set("mailto", params.email || CONTACT_EMAIL);
+  }
   if (search) urlParams.set("search", search);
   if (filter) urlParams.set("filter", filter);
   if (sort) urlParams.set("sort", sort);
 
   const resp = await fetch(`${OPENALEX_BASE}/works?${urlParams}`);
-  if (!resp.ok) throw new Error(`OpenAlex error: ${resp.status}`);
+  if (!resp.ok) {
+    const body = await resp.text().catch(() => "");
+    throw new Error(`OpenAlex error ${resp.status}: ${body.slice(0, 200)}`);
+  }
   let data = await resp.json();
   const totalAvailable = data.meta?.count ?? 0;
   if (totalAvailable === 0) return [];
 
-  const toFetch = Math.min(totalAvailable, maxRecords);
+  const toFetch = Math.min(totalAvailable, internalMax);
   const allRows: Partial<BibWork>[] = [];
 
   for (const w of data.results ?? []) allRows.push(workToRow(w));
@@ -285,5 +356,41 @@ export async function fetchOpenAlexWorks(
     onProgress?.(allRows.length, toFetch);
   }
 
+  if (useBoolean) {
+    const filtered = booleanPostFilter(allRows, params.topic!);
+    return filtered.slice(0, maxRecords);
+  }
+
   return allRows;
+}
+
+/** Search the OpenAlex /topics endpoint and return matching topics. */
+export async function searchTopics(
+  query: string,
+  params?: Pick<OpenAlexSearchParams, "email" | "apiKey">,
+): Promise<OpenAlexTopic[]> {
+  if (!query.trim()) return [];
+
+  const urlParams = new URLSearchParams();
+  urlParams.set("search", query);
+  urlParams.set("per_page", "10");
+  if (params?.apiKey) {
+    urlParams.set("api_key", params.apiKey);
+  } else {
+    urlParams.set("mailto", params?.email || CONTACT_EMAIL);
+  }
+
+  const resp = await fetch(`${OPENALEX_BASE}/topics?${urlParams}`);
+  if (!resp.ok) return [];
+  const data = await resp.json();
+
+  return ((data.results ?? []) as Record<string, unknown>[]).map((t) => ({
+    id: String(t.id ?? ""),
+    display_name: String(t.display_name ?? ""),
+    description: String(t.description ?? ""),
+    works_count: Number(t.works_count ?? 0),
+    subfield: (t.subfield ?? { id: "", display_name: "" }) as OpenAlexTopic["subfield"],
+    field: (t.field ?? { id: "", display_name: "" }) as OpenAlexTopic["field"],
+    domain: (t.domain ?? { id: "", display_name: "" }) as OpenAlexTopic["domain"],
+  }));
 }

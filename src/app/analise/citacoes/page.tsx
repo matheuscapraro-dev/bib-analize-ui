@@ -67,7 +67,7 @@ export default function CitacoesPage() {
       <PageHeader title="Citações" description="Análise de impacto por citações" />
 
       <KpiGrid>
-        <KpiCard title="Total Citações" value={totalCites} icon={<TrendingUp className="size-5" />} />
+        <KpiCard title="Total de Citações" value={totalCites} icon={<TrendingUp className="size-5" />} />
         <KpiCard title="Média/Doc" value={avgCites.toFixed(1)} icon={<BookOpen className="size-5" />} />
         <KpiCard title="Mediana" value={medianCites.toFixed(0)} icon={<Hash className="size-5" />} />
       </KpiGrid>

@@ -162,10 +162,10 @@ export default function FinanciamentoPage() {
         <KpiCard title="Artigos Financiados" value={funded} icon={<DollarSign className="size-5" />} />
         <KpiCard title="% Financiados" value={`${pctFunded}%`} icon={<BarChart3 className="size-5" />} />
         <KpiCard
-          title="Média Citações (Financ.)"
+          title="Citações Médias (Financ.)"
           value={avgCitFunded}
           icon={<TrendingUp className="size-5" />}
-          description={`vs ${avgCitNotFunded} não financiados`}
+          description={`versus ${avgCitNotFunded} não financiados`}
         />
         <KpiCard title="Agências Distintas" value={agencyCounts.length} icon={<DollarSign className="size-5" />} />
       </KpiGrid>
@@ -204,7 +204,7 @@ export default function FinanciamentoPage() {
           <ChartContainer
             ref={impactRef}
             title="Impacto do Financiamento nas Citações"
-            description="Média de citações: artigos financiados vs. não financiados"
+            description="Média de citações: artigos financiados versus não financiados"
             actions={<ChartExportButton chartRef={impactRef} fileName="funding-impact" />}
           >
             <BarChart data={impactData} xKey="name" bars={[{ key: "Média de Citações", label: "Média de Citações" }]} height={300} />

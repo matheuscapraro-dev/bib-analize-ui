@@ -7,7 +7,7 @@ interface EmptyStateProps {
   className?: string;
 }
 
-export function EmptyState({ message = "Sem dados suficientes.", icon, className }: EmptyStateProps) {
+export function EmptyState({ message = "Dados insuficientes para exibição.", icon, className }: EmptyStateProps) {
   return (
     <div className={cn("flex flex-col items-center justify-center gap-2 py-12 text-center", className)}>
       {icon && <div className="text-muted-foreground opacity-50">{icon}</div>}

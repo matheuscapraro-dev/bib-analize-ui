@@ -132,7 +132,7 @@ export default function ArtigosPage() {
     <div className="space-y-6">
       <PageHeader
         title="Explorador de Publicações"
-        description="Encontre rapidamente as publicações mais relevantes."
+        description="Pesquise e identifique as publicações mais relevantes do conjunto de dados."
         badge={`${filtered.length} registros`}
       />
 
@@ -185,7 +185,7 @@ export default function ArtigosPage() {
       {/* KPIs */}
       <KpiGrid className="grid-cols-2 sm:grid-cols-4">
         <KpiCard title="Resultados" value={results.length} icon={<FileText className="size-5" />} />
-        <KpiCard title="Média Citações" value={avgCit} icon={<TrendingUp className="size-5" />} />
+        <KpiCard title="Média de Citações" value={avgCit} icon={<TrendingUp className="size-5" />} />
         <KpiCard title="Score Médio" value={avgScore} icon={<Star className="size-5" />} />
         <KpiCard
           title="Período"
@@ -263,7 +263,7 @@ export default function ArtigosPage() {
                   )}
                   {isExpanded && (
                     <div className="text-xs text-muted-foreground space-y-1 pt-1 border-t">
-                      {w.AB && <p><strong>Resumo:</strong> {w.AB.length > 800 ? w.AB.slice(0, 800) + "..." : w.AB}</p>}
+                      {w.AB && <p><strong>Resumo:</strong> {w.AB}</p>}
                       {w.DE && <p><strong>Palavras-chave:</strong> {w.DE}</p>}
                     </div>
                   )}

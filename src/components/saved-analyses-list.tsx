@@ -118,7 +118,7 @@ export function SavedAnalysesList() {
         <Bookmark className="size-12 mb-4 opacity-30" />
         <p className="font-medium">Nenhuma análise salva</p>
         <p className="text-sm mt-1">
-          Faça uma busca ou upload e salve a análise para acessá-la depois.
+          Realize uma busca ou importe arquivos e salve a análise para acessá-la posteriormente.
         </p>
       </div>
     );
@@ -198,7 +198,7 @@ export function SavedAnalysesList() {
           <DialogHeader>
             <DialogTitle>Excluir análise</DialogTitle>
             <DialogDescription>
-              Tem certeza que deseja excluir &ldquo;{deleteTarget?.name}&rdquo;? Esta ação não pode ser desfeita.
+              Tem certeza de que deseja excluir &ldquo;{deleteTarget?.name}&rdquo;? Esta ação não pode ser desfeita.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

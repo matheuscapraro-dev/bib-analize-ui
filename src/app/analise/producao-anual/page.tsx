@@ -17,7 +17,7 @@ const columns: ColumnDef<YearlyStats, unknown>[] = [
   { accessorKey: "year", header: "Ano" },
   { accessorKey: "count", header: "Docs" },
   { accessorKey: "totalCitations", header: "Citações" },
-  { accessorKey: "avgCitations", header: "Média Cit.", cell: ({ getValue }) => (getValue() as number).toFixed(1) },
+  { accessorKey: "avgCitations", header: "Méd. Cit.", cell: ({ getValue }) => (getValue() as number).toFixed(1) },
   { accessorKey: "cumulativeCount", header: "Acumulado" },
 ];
 

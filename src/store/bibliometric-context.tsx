@@ -100,6 +100,7 @@ function reducer(state: BibState, action: Action): BibState {
         source: action.payload.source,
         fileName: action.payload.fileName ?? null,
         searchParams: action.payload.searchParams ?? null,
+        savedId: null,
         loading: false,
         error: null,
         kpis: computeKpis(filtered),

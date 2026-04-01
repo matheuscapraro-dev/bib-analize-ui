@@ -1,36 +1,68 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# BibAnalize — Plataforma de Análise Bibliométrica
 
-## Getting Started
+**Autor:** Matheus A. Capraro  
+**Orientadora:** Prof.ª Dr.ª Ana Cristina K. Vendramin  
+**Programa:** Programa de Pós-Graduação em Computação Aplicada (PPGCA)  
+**Instituição:** Universidade Tecnológica Federal do Paraná (UTFPR)
 
-First, run the development server:
+---
+
+## Descrição
+
+BibAnalize é uma plataforma web para análise bibliométrica interativa. Permite importar dados do **Web of Science** (arquivos `.txt`, `.csv`, `.bib`) ou buscar diretamente na API do **OpenAlex**, gerando automaticamente mais de 15 painéis de análise — incluindo produção temporal, autores, fontes, citações, colaboração, Open Access, distribuição geográfica, entre outros.
+
+A plataforma também oferece um módulo de **comparação de análises**, possibilitando a comparação lado a lado de 2 a 4 conjuntos bibliográficos com 26 métricas comparativas organizadas em 8 categorias.
+
+## Funcionalidades Principais
+
+- **Importação flexível:** Upload de arquivos Web of Science (Tagged/Tab-delimited) ou busca via API OpenAlex
+- **15+ painéis de análise:** Produção anual, autores (Lotka), fontes (Bradford), citações, colaboração, mapas geográficos, palavras-chave, Open Access, tipos de documento, idiomas, áreas do conhecimento, financiamento, explorador de artigos
+- **Comparação de análises:** Seleção de 2–4 análises salvas para comparação com overlap de conjuntos, radar de perfil, rankings lado a lado, box plots e distribuições
+- **Salvar e restaurar:** Análises são persistidas no navegador (IndexedDB) para acesso posterior
+- **Exportação:** Gráficos exportáveis como PNG e dados como CSV
+- **Interface responsiva:** Design adaptável para desktop e dispositivos móveis
+
+## Tecnologias
+
+- **Framework:** Next.js 16 (App Router) com React 19 e TypeScript
+- **UI:** shadcn/ui + Radix UI + Tailwind CSS 4
+- **Gráficos:** Recharts + SVG customizado
+- **Armazenamento local:** IndexedDB (idb-keyval)
+- **API de dados:** OpenAlex REST API
+
+## Como Executar
 
 ```bash
+# Instalar dependências
+npm install
+
+# Servidor de desenvolvimento
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+
+# Build de produção
+npm run build
+npm start
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Acesse [http://localhost:3000](http://localhost:3000) no navegador.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Estrutura do Projeto
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+src/
+├── app/              # Rotas (Next.js App Router)
+│   ├── analise/      # Painéis de análise bibliométrica
+│   └── comparar/     # Módulo de comparação de análises
+├── components/       # Componentes React reutilizáveis
+│   ├── charts/       # Gráficos (bar, line, pie, radar, box plot)
+│   └── comparison/   # Componentes do módulo de comparação
+├── hooks/            # Custom hooks
+├── lib/              # Lógica de negócio e utilitários
+│   └── comparison/   # Funções de análise comparativa
+├── store/            # Contextos React (estado global)
+└── types/            # Definições TypeScript
+```
 
-## Learn More
+## Licença
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Projeto acadêmico desenvolvido no âmbito do PPGCA/UTFPR. Todos os direitos reservados.

@@ -18,9 +18,11 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
   BarChart3, Upload, Search, FileText, Globe,
-  Loader2, AlertCircle, BookOpen, Bookmark,
+  Loader2, AlertCircle, BookOpen, Bookmark, GitCompareArrows,
+  ChevronDown,
 } from "lucide-react";
 import { SavedAnalysesList } from "@/components/saved-analyses-list";
+import { TopicResolver } from "@/components/topic-resolver";
 
 const SORT_OPTIONS = [
   { value: "relevance_score:desc", label: "Relevância" },
@@ -40,6 +42,14 @@ const DOC_TYPE_OPTIONS = [
   { value: "dissertation", label: "Dissertação" },
 ];
 
+const INDEXED_IN_OPTIONS = [
+  { value: "", label: "Qualquer" },
+  { value: "crossref", label: "Crossref" },
+  { value: "pubmed", label: "PubMed / MEDLINE" },
+  { value: "doaj", label: "DOAJ" },
+  { value: "datacite", label: "DataCite" },
+];
+
 export default function HomePage() {
   const router = useRouter();
   const { setData, setLoading, setError, loading } = useBib();
@@ -49,8 +59,12 @@ export default function HomePage() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
   // OpenAlex state
+  const [oaAuthMode, setOaAuthMode] = useState<"email" | "apikey">("email");
   const [oaParams, setOaParams] = useState<OpenAlexSearchParams>({
     topic: "",
+    topicIds: [],
+    topicFilterMode: "search",
+    searchScope: "fulltext" as const,
     author: "",
     source: "",
     institution: "",
@@ -60,8 +74,12 @@ export default function HomePage() {
     docType: null,
     oaOnly: false,
     hasAbstract: false,
+    strictBoolean: true,
+    rawAffiliation: "",
+    indexedIn: "",
     sort: "relevance_score:desc",
     maxRecords: 1000,
+    email: "",
     apiKey: "",
   });
   const [oaCount, setOaCount] = useState<number | null>(null);
@@ -112,22 +130,29 @@ export default function HomePage() {
   }, [selectedFiles, setData, setLoading, setError, router]);
 
   // OpenAlex handlers
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
+  const hasAnyFilter = useCallback((p: OpenAlexSearchParams) => {
+    return !!p.topic || (p.topicIds?.length ?? 0) > 0 || !!p.author || !!p.source
+      || !!p.institution || !!p.doi || !!p.rawAffiliation || !!p.authorIds || !!p.institutionId;
+  }, []);
+
   const handleCheckCount = useCallback(async () => {
-    if (!oaParams.topic && !oaParams.author && !oaParams.source && !oaParams.institution && !oaParams.doi) {
-      toast.warning("Preencha pelo menos um campo de busca.");
+    if (!hasAnyFilter(oaParams)) {
+      toast.warning("Preencha pelo menos um campo de busca ou filtro.");
       return;
     }
     try {
       const count = await getOpenAlexCount(oaParams);
       setOaCount(count);
-    } catch {
-      toast.error("Erro ao consultar OpenAlex.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao consultar OpenAlex.");
     }
-  }, [oaParams]);
+  }, [oaParams, hasAnyFilter]);
 
   const handleOaSearch = useCallback(async () => {
-    if (!oaParams.topic && !oaParams.author && !oaParams.source && !oaParams.institution && !oaParams.doi) {
-      toast.warning("Preencha pelo menos um campo de busca.");
+    if (!hasAnyFilter(oaParams)) {
+      toast.warning("Preencha pelo menos um campo de busca ou filtro.");
       return;
     }
     setLoading(true);
@@ -141,7 +166,13 @@ export default function HomePage() {
         toast.error("Nenhum resultado encontrado.");
         return;
       }
-      setData(works as BibWork[], "openalex", `OpenAlex: ${oaParams.topic ?? ""}`, oaParams as unknown as Record<string, unknown>);
+      const label = oaParams.topic
+        || oaParams.rawAffiliation
+        || oaParams.institution
+        || oaParams.authorIds
+        || oaParams.institutionId
+        || "filtros";
+      setData(works as BibWork[], "openalex", `OpenAlex: ${label}`, oaParams as unknown as Record<string, unknown>);
       toast.success(`${works.length} registros obtidos do OpenAlex.`);
       router.push("/analise");
     } catch (err) {
@@ -265,14 +296,16 @@ export default function HomePage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-1.5 sm:col-span-2">
-                    <Label>Tópico / Palavras-chave</Label>
-                    <Input
-                      placeholder='ex: "machine learning" AND healthcare'
-                      value={oaParams.topic ?? ""}
-                      onChange={(e) => setOaParams((p) => ({ ...p, topic: e.target.value }))}
-                    />
-                  </div>
+                  <TopicResolver
+                    topic={oaParams.topic ?? ""}
+                    topicIds={oaParams.topicIds ?? []}
+                    topicFilterMode={oaParams.topicFilterMode ?? "topics"}
+                    email={oaParams.email}
+                    apiKey={oaParams.apiKey}
+                    onTopicChange={(v) => setOaParams((p) => ({ ...p, topic: v }))}
+                    onTopicIdsChange={(ids) => setOaParams((p) => ({ ...p, topicIds: ids }))}
+                    onModeChange={(m) => setOaParams((p) => ({ ...p, topicFilterMode: m }))}
+                  />
                   <div className="space-y-1.5">
                     <Label>Autor</Label>
                     <Input
@@ -282,19 +315,30 @@ export default function HomePage() {
                     />
                   </div>
                   <div className="space-y-1.5">
+                    <Label>Instituição (nome)</Label>
+                    <Input
+                      placeholder="ex: University of São Paulo"
+                      value={oaParams.institution ?? ""}
+                      onChange={(e) => setOaParams((p) => ({ ...p, institution: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Programa / Afiliação</Label>
+                    <Input
+                      placeholder="ex: PPGCA|DAINF"
+                      value={oaParams.rawAffiliation ?? ""}
+                      onChange={(e) => setOaParams((p) => ({ ...p, rawAffiliation: e.target.value }))}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Busca no texto da afiliação. Use | para OR (ex: PPGCA|DAINF).
+                    </p>
+                  </div>
+                  <div className="space-y-1.5">
                     <Label>Periódico / Fonte</Label>
                     <Input
                       placeholder="ex: Nature"
                       value={oaParams.source ?? ""}
                       onChange={(e) => setOaParams((p) => ({ ...p, source: e.target.value }))}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Instituição</Label>
-                    <Input
-                      placeholder="ex: University of São Paulo"
-                      value={oaParams.institution ?? ""}
-                      onChange={(e) => setOaParams((p) => ({ ...p, institution: e.target.value }))}
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -309,7 +353,7 @@ export default function HomePage() {
 
                 <Separator />
 
-                <div className="grid gap-3 sm:grid-cols-4">
+                <div className="grid gap-3 sm:grid-cols-5">
                   <div className="space-y-1.5">
                     <Label>Ano início</Label>
                     <Input
@@ -334,7 +378,7 @@ export default function HomePage() {
                     <Label>Tipo</Label>
                     <Select
                       value={oaParams.docType ?? ""}
-                      onValueChange={(v) => setOaParams((p) => ({ ...p, docType: v || null }))}
+                      onValueChange={(v) => setOaParams((p) => ({ ...p, docType: v === "all" ? null : v || null }))}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Todos" />
@@ -342,6 +386,24 @@ export default function HomePage() {
                       <SelectContent>
                         {DOC_TYPE_OPTIONS.map((o) => (
                           <SelectItem key={o.value} value={o.value || "all"}>
+                            {o.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Indexado em</Label>
+                    <Select
+                      value={oaParams.indexedIn ?? ""}
+                      onValueChange={(v) => setOaParams((p) => ({ ...p, indexedIn: v === "any" ? undefined : v || undefined }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Qualquer" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {INDEXED_IN_OPTIONS.map((o) => (
+                          <SelectItem key={o.value} value={o.value || "any"}>
                             {o.label}
                           </SelectItem>
                         ))}
@@ -393,16 +455,103 @@ export default function HomePage() {
                     />
                     Apenas com abstract
                   </label>
+                  <label className="flex items-center gap-2 cursor-pointer text-sm">
+                    <Checkbox
+                      checked={oaParams.strictBoolean ?? true}
+                      onCheckedChange={(v) => setOaParams((p) => ({ ...p, strictBoolean: !!v }))}
+                    />
+                    Filtro booleano estrito
+                  </label>
                 </div>
 
+                <div>
+                  <button
+                    type="button"
+                    className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                    onClick={() => setShowAdvanced((v) => !v)}
+                  >
+                    <ChevronDown className={`size-4 transition-transform ${showAdvanced ? "" : "-rotate-90"}`} />
+                    Filtros por IDs OpenAlex
+                  </button>
+                  {showAdvanced && (
+                    <div className="grid gap-3 sm:grid-cols-2 mt-3">
+                      <div className="space-y-1.5">
+                        <Label>IDs de autores</Label>
+                        <Input
+                          placeholder="ex: A5071288743, A5087379620"
+                          value={oaParams.authorIds ?? ""}
+                          onChange={(e) => setOaParams((p) => ({ ...p, authorIds: e.target.value }))}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          IDs OpenAlex separados por vírgula (OR). Ex: docentes de um programa.
+                        </p>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>ID da instituição</Label>
+                        <Input
+                          placeholder="ex: I1283613182"
+                          value={oaParams.institutionId ?? ""}
+                          onChange={(e) => setOaParams((p) => ({ ...p, institutionId: e.target.value }))}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          ID OpenAlex da instituição (filtra por vínculo exato).
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Warning: relevance sort without search text */}
+                {!oaParams.topic && oaParams.sort === "relevance_score:desc" && hasAnyFilter(oaParams) && (
+                  <div className="flex items-center gap-2 text-sm p-3 rounded-md bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-800">
+                    <AlertCircle className="size-4 shrink-0" />
+                    <span>
+                      Sem texto de busca, a ordenação por &quot;Relevância&quot; será substituída
+                      automaticamente por &quot;Mais citados&quot;.
+                    </span>
+                  </div>
+                )}
+
                 <div className="space-y-1.5">
-                  <Label>API Key (opcional)</Label>
-                  <Input
-                    type="password"
-                    placeholder="Polite pool por padrão"
-                    value={oaParams.apiKey ?? ""}
-                    onChange={(e) => setOaParams((p) => ({ ...p, apiKey: e.target.value }))}
-                  />
+                  <Label>Autenticação OpenAlex</Label>
+                  <div className="flex gap-2 mb-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={oaAuthMode === "email" ? "default" : "outline"}
+                      onClick={() => { setOaAuthMode("email"); setOaParams((p) => ({ ...p, apiKey: "" })); }}
+                    >
+                      E-mail (polite pool)
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={oaAuthMode === "apikey" ? "default" : "outline"}
+                      onClick={() => { setOaAuthMode("apikey"); setOaParams((p) => ({ ...p, email: "" })); }}
+                    >
+                      API Key (premium)
+                    </Button>
+                  </div>
+                  {oaAuthMode === "email" ? (
+                    <Input
+                      type="email"
+                      placeholder="seu@email.com"
+                      value={oaParams.email ?? ""}
+                      onChange={(e) => setOaParams((p) => ({ ...p, email: e.target.value }))}
+                    />
+                  ) : (
+                    <Input
+                      type="password"
+                      placeholder="Cole sua API Key aqui"
+                      value={oaParams.apiKey ?? ""}
+                      onChange={(e) => setOaParams((p) => ({ ...p, apiKey: e.target.value }))}
+                    />
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    {oaAuthMode === "email"
+                      ? "Seu e-mail entra no \"polite pool\" (~5 req/s). Não é obrigatório."
+                      : "A API Key dá acesso premium (~10 req/s). Obtenha grátis em openalex.org."}
+                  </p>
                 </div>
 
                 <div className="flex gap-2">
@@ -443,8 +592,13 @@ export default function HomePage() {
                   Acesse análises anteriores salvas no navegador. Clique em uma para carregar.
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
                 <SavedAnalysesList />
+                <Separator />
+                <Button variant="outline" className="w-full gap-2" onClick={() => router.push("/comparar")}>
+                  <GitCompareArrows className="size-4" />
+                  Comparar Análises Salvas
+                </Button>
               </CardContent>
             </Card>
           </TabsContent>
@@ -452,9 +606,11 @@ export default function HomePage() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t py-4">
-        <div className="container mx-auto text-center text-xs text-muted-foreground px-4">
-          BibAnalize &mdash; Ferramenta de Análise Bibliométrica &bull; PPGCA/UTFPR
+      <footer className="border-t py-6">
+        <div className="container mx-auto text-center text-xs text-muted-foreground px-4 space-y-1">
+          <p className="font-medium">BibAnalize &mdash; Ferramenta de Análise Bibliométrica</p>
+          <p>Desenvolvido por <span className="text-foreground/80">Matheus A. Capraro</span> &bull; Orientação: <span className="text-foreground/80">Prof.ª Dr.ª Ana Cristina K. Vendramin</span></p>
+          <p>Programa de Pós-Graduação em Computação Aplicada (PPGCA) &bull; UTFPR</p>
         </div>
       </footer>
     </div>

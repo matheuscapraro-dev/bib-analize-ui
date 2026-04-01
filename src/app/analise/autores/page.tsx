@@ -21,8 +21,8 @@ const columns: ColumnDef<AuthorMetric, unknown>[] = [
   { accessorKey: "count", header: "Docs" },
   { accessorKey: "citations", header: "Citações" },
   { accessorKey: "hIndex", header: "h-Index" },
-  { accessorKey: "firstYear", header: "1º Pub" },
-  { accessorKey: "lastYear", header: "Últ. Pub" },
+  { accessorKey: "firstYear", header: "1ª Pub." },
+  { accessorKey: "lastYear", header: "Últ. Pub." },
 ];
 
 export default function AutoresPage() {
@@ -54,8 +54,8 @@ export default function AutoresPage() {
           </ChartContainer>
         </TabsContent>
         <TabsContent value="network">
-          <ChartContainer ref={netRef} title="Rede de Coautoria" description="Nós = autores, arestas = trabalhos conjuntos" actions={<ChartExportButton chartRef={netRef} fileName="rede-coautoria" />}>
-            {network.nodes.length > 0 ? <NetworkGraph data={network} /> : <EmptyState message="Sem dados suficientes para a rede." />}
+          <ChartContainer ref={netRef} title="Rede de Coautoria" description="Nós representam autores; arestas indicam coautorias" actions={<ChartExportButton chartRef={netRef} fileName="rede-coautoria" />}>
+            {network.nodes.length > 0 ? <NetworkGraph data={network} /> : <EmptyState message="Dados insuficientes para gerar a rede." />}
           </ChartContainer>
         </TabsContent>
         <TabsContent value="table">

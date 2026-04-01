@@ -40,7 +40,7 @@ export default function TiposDocumentoPage() {
 
       <Tabs defaultValue="pie">
         <TabsList>
-          <TabsTrigger value="pie">Pizza</TabsTrigger>
+          <TabsTrigger value="pie">Setores</TabsTrigger>
           <TabsTrigger value="treemap">Treemap</TabsTrigger>
           <TabsTrigger value="table">Tabela</TabsTrigger>
         </TabsList>

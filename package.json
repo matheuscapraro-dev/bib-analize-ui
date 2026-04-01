@@ -1,7 +1,12 @@
 {
   "name": "bib-analize-ui",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
+  "author": "Matheus A. Capraro <PPGCA/UTFPR>",
+  "contributors": [
+    "Matheus A. Capraro",
+    "Ana Cristina K. Vendramin (Orientadora)"
+  ],
   "scripts": {
     "dev": "next dev",
     "build": "next build",

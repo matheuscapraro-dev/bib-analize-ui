@@ -6,6 +6,7 @@ import {
   BarChart3, BookOpen, Building2, FileText, Globe, Hash,
   LayoutDashboard, Library, LineChart, MapPin, Network,
   Sparkles, TrendingUp, Users, Newspaper, DollarSign, Search,
+  GitCompareArrows,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -26,7 +27,7 @@ const NAV_ITEMS = [
   { href: "/analise/areas", label: "Áreas do Conhecimento", icon: Library },
   { href: "/analise/financiamento", label: "Financiamento", icon: DollarSign },
   { href: "/analise/lotka-bradford", label: "Lotka & Bradford", icon: BarChart3 },
-  { href: "/analise/artigos", label: "Explorador de Artigos", icon: Search },
+  { href: "/analise/artigos", label: "Explorador de Publicações", icon: Search },
   { href: "/analise/resumo", label: "Resumo & Exportação", icon: Sparkles },
 ] as const;
 
@@ -65,6 +66,21 @@ export function AppSidebar({ className }: AppSidebarProps) {
               </Link>
             );
           })}
+
+          <div className="my-2 border-t" />
+
+          <Link
+            href="/comparar"
+            className={cn(
+              "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+              pathname.startsWith("/comparar")
+                ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+            )}
+          >
+            <GitCompareArrows className="size-4 shrink-0" />
+            Comparar Análises
+          </Link>
         </nav>
       </ScrollArea>
     </aside>

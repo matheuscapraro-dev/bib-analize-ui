@@ -7,3 +7,7 @@ export { Treemap } from "./treemap";
 export { NetworkGraph } from "./network-graph";
 export { WordCloud } from "./word-cloud";
 export { ChoroplethMap } from "./choropleth-map";
+export { ComparisonBarChart } from "./comparison-bar-chart";
+export { OverlayLineChart } from "./overlay-line-chart";
+export { RadarChart } from "./radar-chart";
+export { BoxPlotComparison } from "./box-plot-comparison";

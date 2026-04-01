@@ -8,7 +8,12 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 
 export const metadata: Metadata = {
   title: "BibAnalize – Análise Bibliométrica",
-  description: "Plataforma de análise bibliométrica com dados Web of Science e OpenAlex",
+  description:
+    "Plataforma de análise bibliométrica com dados Web of Science e OpenAlex. Desenvolvido por Matheus A. Capraro sob orientação da Prof.ª Dr.ª Ana Cristina K. Vendramin — PPGCA/UTFPR.",
+  authors: [
+    { name: "Matheus A. Capraro" },
+    { name: "Ana Cristina K. Vendramin" },
+  ],
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

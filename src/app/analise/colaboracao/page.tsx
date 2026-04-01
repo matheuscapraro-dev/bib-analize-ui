@@ -51,8 +51,8 @@ export default function ColaboracaoPage() {
       <PageHeader title="Colaboração" description="Redes de colaboração entre autores, instituições e países" />
 
       <KpiGrid>
-        <KpiCard title="Média Autores/Doc" value={avgAuthorsPerDoc.toFixed(1)} icon={<Users className="size-5" />} />
-        <KpiCard title="Colab. Internacional" value={intlCollab} description={`${((intlCollab / filtered.length) * 100).toFixed(1)}% dos docs`} icon={<MapPin className="size-5" />} />
+        <KpiCard title="Média de Autores/Doc" value={avgAuthorsPerDoc.toFixed(1)} icon={<Users className="size-5" />} />
+        <KpiCard title="Colab. Internacional" value={intlCollab} description={`${((intlCollab / filtered.length) * 100).toFixed(1)}% dos documentos`} icon={<MapPin className="size-5" />} />
       </KpiGrid>
 
       <Tabs defaultValue="coauthor">

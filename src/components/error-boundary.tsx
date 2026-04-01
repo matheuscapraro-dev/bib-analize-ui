@@ -31,9 +31,9 @@ export class ErrorBoundary extends Component<Props, State> {
         <div className="flex flex-col items-center justify-center gap-4 py-16 text-center">
           <AlertCircle className="size-10 text-destructive" />
           <div>
-            <h3 className="text-lg font-semibold">Algo deu errado</h3>
+            <h3 className="text-lg font-semibold">Ocorreu um erro</h3>
             <p className="text-sm text-muted-foreground max-w-md mt-1">
-              Ocorreu um erro ao renderizar esta seção. Tente recarregar.
+              Ocorreu um erro ao exibir esta seção. Tente recarregar a página.
             </p>
             {this.state.error && (
               <p className="text-xs text-muted-foreground mt-2 font-mono">{this.state.error.message}</p>

@@ -60,7 +60,7 @@ export default function OverviewPage() {
         <ChartContainer
           ref={srcRef}
           title="Top 10 Fontes"
-          description="Periódicos/fontes mais produtivos"
+          description="Fontes com maior volume de publicações"
           actions={<ChartExportButton chartRef={srcRef} fileName="top-fontes" />}
         >
           <BarChart
