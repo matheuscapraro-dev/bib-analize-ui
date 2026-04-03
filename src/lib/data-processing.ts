@@ -500,3 +500,322 @@ export function countValues(data: BibWork[], field: string): Map<string, number>
 export function getCountryIso(country: string): string | undefined {
   return COUNTRY_ISO[country];
 }
+
+// ── Citation Distribution ───────────────────────────────────
+
+export interface CitationBin { label: string; count: number; }
+
+export function citationDistribution(data: BibWork[]): { bins: CitationBin[]; uncitedPct: number } {
+  const cc = citCol(data);
+  const cites = data.map((w) => numVal(w, cc));
+  const uncited = cites.filter((c) => c === 0).length;
+  const uncitedPct = data.length ? Math.round((uncited / data.length) * 1000) / 10 : 0;
+
+  const max = Math.max(...cites, 1);
+  const edges = [0, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, Infinity].filter((e) => e <= max || e === Infinity);
+  if (edges[edges.length - 1] !== Infinity) edges.push(Infinity);
+
+  const bins: CitationBin[] = [];
+  for (let i = 0; i < edges.length - 1; i++) {
+    const lo = edges[i];
+    const hi = edges[i + 1];
+    const label = hi === Infinity ? `${lo}+` : lo === hi - 1 ? `${lo}` : `${lo}–${hi - 1}`;
+    const count = cites.filter((c) => c >= lo && c < hi).length;
+    if (count > 0) bins.push({ label, count });
+  }
+  return { bins, uncitedPct };
+}
+
+// ── FWCI Distribution ───────────────────────────────────────
+
+export interface FwciBin { label: string; count: number; }
+
+export interface FwciStats {
+  bins: FwciBin[];
+  mean: number;
+  median: number;
+  top1Pct: number;
+  top10Pct: number;
+  aboveWorld: number;
+  totalWithFwci: number;
+}
+
+export function fwciDistribution(data: BibWork[]): FwciStats {
+  const withFwci = data.filter((w) => w._FWCI != null && typeof w._FWCI === "number");
+  const values = withFwci.map((w) => w._FWCI as number).sort((a, b) => a - b);
+
+  const mean = values.length ? Math.round((values.reduce((s, v) => s + v, 0) / values.length) * 100) / 100 : 0;
+  const median = values.length
+    ? values.length % 2 ? values[Math.floor(values.length / 2)] : (values[Math.floor(values.length / 2) - 1] + values[Math.floor(values.length / 2)]) / 2
+    : 0;
+
+  const top1 = data.filter((w) => w._TOP_1PCT === true).length;
+  const top10 = data.filter((w) => w._TOP_10PCT === true).length;
+  const aboveWorld = values.filter((v) => v >= 1.0).length;
+
+  const edges = [0, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 5.0, Infinity];
+  const bins: FwciBin[] = [];
+  for (let i = 0; i < edges.length - 1; i++) {
+    const lo = edges[i];
+    const hi = edges[i + 1];
+    const label = hi === Infinity ? `${lo}+` : `${lo}–${hi}`;
+    const count = values.filter((v) => v >= lo && v < hi).length;
+    if (count > 0) bins.push({ label, count });
+  }
+
+  return {
+    bins,
+    mean,
+    median: Math.round(median * 100) / 100,
+    top1Pct: data.length ? Math.round((top1 / data.length) * 1000) / 10 : 0,
+    top10Pct: data.length ? Math.round((top10 / data.length) * 1000) / 10 : 0,
+    aboveWorld: values.length ? Math.round((aboveWorld / values.length) * 1000) / 10 : 0,
+    totalWithFwci: withFwci.length,
+  };
+}
+
+// ── Reference Analysis (CR field) ───────────────────────────
+
+export interface RefEntry { ref: string; count: number; }
+
+export function extractTopReferences(data: BibWork[], topCount = 30): RefEntry[] {
+  const counts = new Map<string, number>();
+  for (const w of data) {
+    const cr = w.CR ?? "";
+    if (!cr) continue;
+    for (const ref of cr.split("; ")) {
+      const trimmed = ref.trim();
+      if (trimmed.length > 5) {
+        counts.set(trimmed, (counts.get(trimmed) ?? 0) + 1);
+      }
+    }
+  }
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, topCount)
+    .map(([ref, count]) => ({ ref, count }));
+}
+
+export interface RefYearBin { year: number; count: number; }
+
+export function referenceYearDistribution(data: BibWork[]): RefYearBin[] {
+  const yearCounts = new Map<number, number>();
+  const yearRegex = /\b(19|20)\d{2}\b/;
+  for (const w of data) {
+    const cr = w.CR ?? "";
+    if (!cr) continue;
+    for (const ref of cr.split("; ")) {
+      const match = ref.match(yearRegex);
+      if (match) {
+        const y = parseInt(match[0], 10);
+        if (y >= 1900 && y <= new Date().getFullYear()) {
+          yearCounts.set(y, (yearCounts.get(y) ?? 0) + 1);
+        }
+      }
+    }
+  }
+  return [...yearCounts.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([year, count]) => ({ year, count }));
+}
+
+export function priceIndex(data: BibWork[], recentYears = 5): { index: number; totalRefs: number; recentRefs: number } {
+  const currentYear = new Date().getFullYear();
+  const threshold = currentYear - recentYears;
+  const yearRegex = /\b(19|20)\d{2}\b/;
+  let total = 0;
+  let recent = 0;
+
+  for (const w of data) {
+    const cr = w.CR ?? "";
+    if (!cr) continue;
+    for (const ref of cr.split("; ")) {
+      const match = ref.match(yearRegex);
+      if (match) {
+        const y = parseInt(match[0], 10);
+        if (y >= 1900 && y <= currentYear) {
+          total++;
+          if (y >= threshold) recent++;
+        }
+      }
+    }
+  }
+  return {
+    index: total > 0 ? Math.round((recent / total) * 1000) / 10 : 0,
+    totalRefs: total,
+    recentRefs: recent,
+  };
+}
+
+// ── Global South Stats ──────────────────────────────────────
+
+import { GLOBAL_SOUTH_CODES, COUNTRY_CONTINENT } from "./constants";
+
+export interface GlobalSouthStats {
+  southDocs: number;
+  northDocs: number;
+  southPct: number;
+  southCitations: number;
+  northCitations: number;
+  citationGap: number;
+  continents: { name: string; count: number }[];
+}
+
+export function globalSouthStats(data: BibWork[]): GlobalSouthStats {
+  const cc = citCol(data);
+  let southDocs = 0;
+  let northDocs = 0;
+  let southCit = 0;
+  let northCit = 0;
+  const continentCounts = new Map<string, number>();
+
+  for (const w of data) {
+    const gs = w._GLOBAL_SOUTH;
+    const cit = numVal(w, cc);
+    if (gs === true) { southDocs++; southCit += cit; }
+    else if (gs === false) { northDocs++; northCit += cit; }
+
+    const continentsStr = w._CONTINENTS ?? "";
+    if (continentsStr) {
+      for (const c of continentsStr.split("; ")) {
+        const trimmed = c.trim();
+        if (trimmed) continentCounts.set(trimmed, (continentCounts.get(trimmed) ?? 0) + 1);
+      }
+    }
+  }
+
+  // Fallback: if _GLOBAL_SOUTH is not populated, try extracting from countries
+  if (southDocs === 0 && northDocs === 0) {
+    for (const w of data) {
+      const cit = numVal(w, cc);
+      const countries = extractCountriesFromWork(w);
+      let isSouth = false;
+      for (const c of countries) {
+        const iso = COUNTRY_ISO[c];
+        if (iso) {
+          const continent = COUNTRY_CONTINENT[iso];
+          if (continent) continentCounts.set(continent, (continentCounts.get(continent) ?? 0) + 1);
+          if (GLOBAL_SOUTH_CODES.has(iso)) isSouth = true;
+        }
+      }
+      if (isSouth) { southDocs++; southCit += cit; }
+      else if (countries.length > 0) { northDocs++; northCit += cit; }
+    }
+  }
+
+  const southAvg = southDocs > 0 ? southCit / southDocs : 0;
+  const northAvg = northDocs > 0 ? northCit / northDocs : 0;
+
+  return {
+    southDocs,
+    northDocs,
+    southPct: (southDocs + northDocs) > 0 ? Math.round((southDocs / (southDocs + northDocs)) * 1000) / 10 : 0,
+    southCitations: southCit,
+    northCitations: northCit,
+    citationGap: Math.round((northAvg - southAvg) * 10) / 10,
+    continents: [...continentCounts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, count]) => ({ name, count })),
+  };
+}
+
+function extractCountriesFromWork(w: BibWork): string[] {
+  const addr = w.C1 ?? "";
+  if (!addr) return [];
+  const countries: string[] = [];
+  const seen = new Set<string>();
+  for (const part of addr.split("; ")) {
+    const elements = part.split(", ");
+    if (!elements.length) continue;
+    let c = elements[elements.length - 1].trim().replace(/\.$/, "");
+    if (c.length <= 2 || /^\d+$/.test(c) || c.includes("@") || c.length >= 50) continue;
+    c = normalizeCountry(c);
+    if (c && !seen.has(c)) { seen.add(c); countries.push(c); }
+  }
+  return countries;
+}
+
+// ── OA Citation Impact ──────────────────────────────────────
+
+export interface OaCitationRow {
+  status: string;
+  count: number;
+  meanCitations: number;
+  medianCitations: number;
+  totalCitations: number;
+}
+
+export function oaCitationImpact(data: BibWork[]): OaCitationRow[] {
+  const cc = citCol(data);
+  const grouped = new Map<string, number[]>();
+
+  for (const w of data) {
+    const status = (w.OA ?? "").trim() || "Desconhecido";
+    const cit = numVal(w, cc);
+    const arr = grouped.get(status) ?? [];
+    arr.push(cit);
+    grouped.set(status, arr);
+  }
+
+  return [...grouped.entries()]
+    .map(([status, cits]) => {
+      const sorted = [...cits].sort((a, b) => a - b);
+      const mid = Math.floor(sorted.length / 2);
+      const median = sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+      return {
+        status,
+        count: cits.length,
+        meanCitations: Math.round((cits.reduce((s, c) => s + c, 0) / cits.length) * 10) / 10,
+        medianCitations: Math.round(median * 10) / 10,
+        totalCitations: cits.reduce((s, c) => s + c, 0),
+      };
+    })
+    .sort((a, b) => b.meanCitations - a.meanCitations);
+}
+
+// ── Keyword Timeline ────────────────────────────────────────
+
+export interface KeywordTimelineRow {
+  keyword: string;
+  [year: string]: string | number;
+}
+
+export function keywordTimeline(data: BibWork[], field = "DE", topCount = 15): { rows: KeywordTimelineRow[]; years: number[] } {
+  const yc = yearCol(data);
+  const allKw = extractKeywords(data, field);
+  const kwCounts = new Map<string, number>();
+  for (const k of allKw) kwCounts.set(k, (kwCounts.get(k) ?? 0) + 1);
+
+  const topKws = [...kwCounts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, topCount)
+    .map(([k]) => k);
+
+  const topSet = new Set(topKws);
+
+  const col = getColFromArray(data, field) ?? (field === "DE" ? "Palavras-chave do Autor" : "Keywords Plus");
+  const matrix = new Map<string, Map<number, number>>();
+  const allYears = new Set<number>();
+
+  for (const w of data) {
+    const y = numVal(w, yc);
+    if (y < 1900) continue;
+    allYears.add(y);
+    const kws = safeSplit(val(w, col)).map((k) => k.toLowerCase()).filter((k) => topSet.has(k));
+    for (const kw of kws) {
+      const yearMap = matrix.get(kw) ?? new Map<number, number>();
+      yearMap.set(y, (yearMap.get(y) ?? 0) + 1);
+      matrix.set(kw, yearMap);
+    }
+  }
+
+  const years = [...allYears].sort((a, b) => a - b);
+  const rows: KeywordTimelineRow[] = topKws.map((kw) => {
+    const row: KeywordTimelineRow = { keyword: kw };
+    const yearMap = matrix.get(kw) ?? new Map();
+    for (const y of years) row[String(y)] = yearMap.get(y) ?? 0;
+    return row;
+  });
+
+  return { rows, years };
+}

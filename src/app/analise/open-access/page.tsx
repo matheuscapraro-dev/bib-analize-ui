@@ -7,11 +7,11 @@ import { PieChart } from "@/components/charts/pie-chart";
 import { BarChart } from "@/components/charts/bar-chart";
 import { ChartContainer } from "@/components/charts/chart-container";
 import { useChartRef, ChartExportButton } from "@/components/chart-export-button";
-import { countValues, topN, yearlyStats } from "@/lib/data-processing";
+import { countValues, topN, oaCitationImpact } from "@/lib/data-processing";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "@/components/data-table";
 import { KpiCard, KpiGrid } from "@/components/kpi-cards";
-import { BookOpen, Lock, Unlock } from "lucide-react";
+import { BookOpen, Lock, Unlock, TrendingUp } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 
 interface OaRow { status: string; count: number; pct: string; }
@@ -22,10 +22,21 @@ const columns: ColumnDef<OaRow, unknown>[] = [
   { accessorKey: "pct", header: "%" },
 ];
 
+interface ImpactRow { status: string; count: number; meanCitations: number; medianCitations: number; totalCitations: number; }
+
+const impactColumns: ColumnDef<ImpactRow, unknown>[] = [
+  { accessorKey: "status", header: "Status OA" },
+  { accessorKey: "count", header: "Docs" },
+  { accessorKey: "meanCitations", header: "Média Citações" },
+  { accessorKey: "medianCitations", header: "Mediana" },
+  { accessorKey: "totalCitations", header: "Total Citações" },
+];
+
 export default function OpenAccessPage() {
   const { filtered } = useBib();
   const pieRef = useChartRef();
   const trendRef = useChartRef();
+  const impactRef = useChartRef();
 
   const oaCounts = useMemo(() => countValues(filtered, "OA"), [filtered]);
   const oaData = useMemo(() => topN(oaCounts, 20).map(([n, v]) => ({ name: n, value: v })), [oaCounts]);
@@ -58,6 +69,12 @@ export default function OpenAccessPage() {
       .map(([year, v]) => ({ year, open: v.open, closed: v.closed }));
   }, [filtered]);
 
+  const impact = useMemo(() => oaCitationImpact(filtered), [filtered]);
+  const impactChart = useMemo(() =>
+    impact.map((r) => ({ name: r.status, média: r.meanCitations })),
+    [impact],
+  );
+
   return (
     <div className="space-y-6">
       <PageHeader title="Open Access" description="Análise de acesso aberto das publicações" />
@@ -75,6 +92,18 @@ export default function OpenAccessPage() {
           <BarChart data={oaTrend} xKey="year" bars={[{ key: "open", label: "Open Access", stackId: "a" }, { key: "closed", label: "Fechado", stackId: "a", color: "#94a3b8" }]} showLegend />
         </ChartContainer>
       </div>
+
+      {/* Impacto por tipo OA */}
+      <ChartContainer ref={impactRef} title="Média de Citações por Tipo OA" description="Comparação do impacto médio de citações entre tipos de acesso" actions={<ChartExportButton chartRef={impactRef} fileName="oa-impacto" />}>
+        <BarChart data={impactChart} xKey="name" bars={[{ key: "média", label: "Média de Citações" }]} layout="vertical" height={Math.max(250, impact.length * 45)} />
+      </ChartContainer>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Impacto por Status OA</CardTitle></CardHeader>
+        <CardContent>
+          <DataTable columns={impactColumns} data={impact} />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader><CardTitle className="text-base">Detalhamento por Status</CardTitle></CardHeader>

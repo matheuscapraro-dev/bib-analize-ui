@@ -7,7 +7,7 @@ import { BarChart } from "@/components/charts/bar-chart";
 import { WordCloud } from "@/components/charts/word-cloud";
 import { ChartContainer } from "@/components/charts/chart-container";
 import { useChartRef, ChartExportButton } from "@/components/chart-export-button";
-import { keywordCooccurrenceNetwork, extractKeywords } from "@/lib/data-processing";
+import { keywordCooccurrenceNetwork, extractKeywords, keywordTimeline } from "@/lib/data-processing";
 import { NetworkGraph } from "@/components/charts/network-graph";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "@/components/data-table";
@@ -49,6 +49,7 @@ export default function PalavrasChavePage() {
   const cloudWords = useMemo(() => allKw.slice(0, 80).map(([text, value]) => ({ text, value })), [allKw]);
   const tableData = useMemo(() => allKw.map(([n, v], i) => ({ rank: i + 1, keyword: n, count: v })), [allKw]);
   const network = useMemo(() => keywordCooccurrenceNetwork(filtered, kwField, 5, 30), [filtered, kwField]);
+  const timeline = useMemo(() => keywordTimeline(filtered, kwField, 15), [filtered, kwField]);
 
   return (
     <div className="space-y-6">
@@ -71,6 +72,7 @@ export default function PalavrasChavePage() {
           <TabsTrigger value="cloud">Nuvem</TabsTrigger>
           <TabsTrigger value="chart">Gráfico</TabsTrigger>
           <TabsTrigger value="network">Rede</TabsTrigger>
+          {timeline.years.length > 1 && <TabsTrigger value="evolution">Evolução</TabsTrigger>}
           <TabsTrigger value="table">Tabela</TabsTrigger>
         </TabsList>
         <TabsContent value="cloud">
@@ -88,6 +90,51 @@ export default function PalavrasChavePage() {
             {network.nodes.length > 0 ? <NetworkGraph data={network} /> : <EmptyState />}
           </ChartContainer>
         </TabsContent>
+        {timeline.years.length > 1 && (
+          <TabsContent value="evolution">
+            <Card>
+              <CardHeader><CardTitle className="text-base">Evolução Temporal — Top 15 Palavras-chave</CardTitle></CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm border-collapse">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left p-2 sticky left-0 bg-background font-medium">Palavra-chave</th>
+                        {timeline.years.map((y) => (
+                          <th key={y} className="text-center p-2 font-medium min-w-[50px]">{y}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {timeline.rows.map((row) => (
+                        <tr key={row.keyword} className="border-b hover:bg-muted/50">
+                          <td className="p-2 sticky left-0 bg-background font-medium truncate max-w-[200px]">{row.keyword}</td>
+                          {timeline.years.map((y) => {
+                            const v = (row[String(y)] as number) || 0;
+                            const max = Math.max(...timeline.years.map((yr) => (row[String(yr)] as number) || 0));
+                            const intensity = max > 0 ? v / max : 0;
+                            return (
+                              <td
+                                key={y}
+                                className="text-center p-2"
+                                style={{
+                                  backgroundColor: v > 0 ? `hsl(217 91% 60% / ${0.15 + intensity * 0.65})` : "transparent",
+                                  color: intensity > 0.5 ? "white" : undefined,
+                                }}
+                              >
+                                {v > 0 ? v : ""}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
         <TabsContent value="table">
           <Card>
             <CardHeader><CardTitle className="text-base">Todas as Palavras-chave</CardTitle></CardHeader>
