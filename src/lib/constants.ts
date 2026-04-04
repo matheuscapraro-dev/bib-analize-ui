@@ -12,10 +12,10 @@ export const FIELD_MAP: Record<string, string> = {
   _FWCI: "FWCI", _CITE_PERCENTILE: "Percentil de Citação",
   _TOP_1PCT: "Top 1% Citados", _TOP_10PCT: "Top 10% Citados",
   _GLOBAL_SOUTH: "Sul Global", _CONTINENTS: "Continentes",
-  _N_COUNTRIES: "Nº de Países Distintos", _N_INSTITUTIONS: "Nº de Instituições Distintas",
+  _N_COUNTRIES: "Nº Países Distintos", _N_INSTITUTIONS: "Nº Instituições Distintas",
   _INST_TYPES: "Tipos de Instituição", _CITE_TRAJECTORY: "Trajetória de Citações",
-  _RETRACTED: "Retratado", _SDG: "ODS", _INDEXED: "Indexado em",
-  _OA_URL: "URL de Acesso Aberto",
+  _RETRACTED: "Retratado", _SDG: "ODS", _INDEXED: "Indexado Em",
+  _OA_URL: "URL Acesso Aberto",
 };
 
 export const NUMERIC_FIELDS = [
@@ -98,8 +98,8 @@ export const CHART_COLORS = [
 ];
 
 export const RECHARTS_COLORS = [
-  "hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))",
-  "hsl(var(--chart-4))", "hsl(var(--chart-5))",
+  "var(--chart-1)", "var(--chart-2)", "var(--chart-3)",
+  "var(--chart-4)", "var(--chart-5)",
 ];
 
 export const TAILWIND_CHART_FILLS = [

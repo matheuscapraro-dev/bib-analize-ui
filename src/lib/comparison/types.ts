@@ -1,11 +1,11 @@
-import type { BibWork, KpiData } from "@/types/bibliometric";
+import type { BibWork, DataSource, KpiData } from "@/types/bibliometric";
 
 /* ── Dataset ─────────────────────────────────────────────── */
 
 export interface ComparisonDataset {
   id: string;
   name: string;
-  source: "openalex" | "upload";
+  source: DataSource;
   works: BibWork[];
   color: string;
   colorHex: string;

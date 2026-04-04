@@ -27,7 +27,7 @@ const NAV_ITEMS = [
   { href: "/analise/areas", label: "Áreas do Conhecimento", icon: Library },
   { href: "/analise/financiamento", label: "Financiamento", icon: DollarSign },
   { href: "/analise/lotka-bradford", label: "Lotka & Bradford", icon: BarChart3 },
-  { href: "/analise/artigos", label: "Explorador de Publicações", icon: Search },
+  { href: "/analise/artigos", label: "Explorador de Artigos", icon: Search },
   { href: "/analise/resumo", label: "Resumo & Exportação", icon: Sparkles },
 ] as const;
 
@@ -39,7 +39,7 @@ export function AppSidebar({ className }: AppSidebarProps) {
   const pathname = usePathname();
 
   return (
-    <aside className={cn("flex flex-col w-60 shrink-0 border-r bg-sidebar text-sidebar-foreground", className)}>
+    <aside className={cn("flex flex-col min-h-0 w-60 shrink-0 border-r bg-sidebar text-sidebar-foreground", className)}>
       <div className="flex h-14 items-center border-b px-4">
         <Link href="/" className="flex items-center gap-2 font-semibold">
           <BarChart3 className="size-5 text-sidebar-primary" />

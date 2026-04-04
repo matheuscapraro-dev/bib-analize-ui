@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import { useBib } from "@/store/bibliometric-context";
 import { processUpload } from "@/lib/parser";
 import { fetchOpenAlexWorks, getOpenAlexCount, type OpenAlexSearchParams } from "@/lib/openalex-api";
+import { fetchWosWorks, getWosCount, buildWosQuery, WOS_DATABASES, WOS_SORT_OPTIONS, type WosSearchParams } from "@/lib/wos-api";
+import { enrichWithOpenAlex } from "@/lib/openalex-enrich";
 import type { BibWork } from "@/types/bibliometric";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,8 +21,9 @@ import { Separator } from "@/components/ui/separator";
 import {
   BarChart3, Upload, Search, FileText, Globe,
   Loader2, AlertCircle, BookOpen, Bookmark, GitCompareArrows,
-  ChevronDown,
+  ChevronDown, Database, Info, Sparkles,
 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { SavedAnalysesList } from "@/components/saved-analyses-list";
 import { TopicResolver } from "@/components/topic-resolver";
 
@@ -84,6 +87,28 @@ export default function HomePage() {
   });
   const [oaCount, setOaCount] = useState<number | null>(null);
   const [oaProgress, setOaProgress] = useState<{ fetched: number; total: number } | null>(null);
+
+  // WoS state
+  const [wosParams, setWosParams] = useState<WosSearchParams>({
+    topic: "",
+    author: "",
+    source: "",
+    organization: "",
+    doi: "",
+    yearStart: 2000,
+    yearEnd: new Date().getFullYear(),
+    database: "WOS",
+    sortField: "RS+D",
+    maxRecords: 1000,
+    apiKey: "",
+    rawQuery: "",
+  });
+  const [wosAdvancedMode, setWosAdvancedMode] = useState(false);
+  const [wosEnrich, setWosEnrich] = useState(true);
+  const [wosOaEmail, setWosOaEmail] = useState("");
+  const [wosOaApiKey, setWosOaApiKey] = useState("");
+  const [wosCount, setWosCount] = useState<number | null>(null);
+  const [wosProgress, setWosProgress] = useState<string | null>(null);
 
   // File upload handlers
   const handleFiles = useCallback((files: FileList | File[]) => {
@@ -182,6 +207,58 @@ export default function HomePage() {
     }
   }, [oaParams, setData, setLoading, setError, router]);
 
+  // WoS handlers
+  const hasAnyWosFilter = useCallback((p: WosSearchParams) => {
+    return !!p.rawQuery || !!p.topic || !!p.author || !!p.source || !!p.organization || !!p.doi;
+  }, []);
+
+  const handleWosCheckCount = useCallback(async () => {
+    if (!wosParams.apiKey) { toast.warning("Informe sua API Key Clarivate."); return; }
+    if (!hasAnyWosFilter(wosParams)) { toast.warning("Preencha pelo menos um campo de busca."); return; }
+    try {
+      const query = buildWosQuery(wosParams);
+      const count = await getWosCount(wosParams.apiKey, query, wosParams.database);
+      setWosCount(count);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao consultar WoS.");
+    }
+  }, [wosParams, hasAnyWosFilter]);
+
+  const handleWosSearch = useCallback(async () => {
+    if (!wosParams.apiKey) { toast.warning("Informe sua API Key Clarivate."); return; }
+    if (!hasAnyWosFilter(wosParams)) { toast.warning("Preencha pelo menos um campo de busca."); return; }
+    setLoading(true);
+    setWosProgress(null);
+    try {
+      setWosProgress("Buscando no Web of Science...");
+      let works = await fetchWosWorks(wosParams, (fetched, total) => {
+        setWosProgress(`Buscando ${fetched}/${total}...`);
+      });
+      if (!works.length) {
+        setError("Nenhum resultado encontrado.");
+        toast.error("Nenhum resultado encontrado.");
+        return;
+      }
+      if (wosEnrich) {
+        setWosProgress("Enriquecendo com OpenAlex...");
+        works = await enrichWithOpenAlex(
+          works,
+          (enriched, total) => { setWosProgress(`Enriquecendo ${enriched}/${total}...`); },
+          wosOaEmail || undefined,
+          wosOaApiKey || undefined,
+        );
+      }
+      const label = wosParams.rawQuery || wosParams.topic || wosParams.organization || "WoS";
+      setData(works as BibWork[], "wos", `WoS: ${label}`, wosParams as unknown as Record<string, unknown>);
+      toast.success(`${works.length} registros obtidos do Web of Science.`);
+      router.push("/analise");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Erro na busca.";
+      setError(msg);
+      toast.error(msg);
+    }
+  }, [wosParams, wosEnrich, wosOaEmail, wosOaApiKey, setData, setLoading, setError, router]);
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
@@ -205,12 +282,12 @@ export default function HomePage() {
         <div className="text-center mb-8">
           <h2 className="text-3xl font-bold tracking-tight mb-2">Análise Bibliométrica</h2>
           <p className="text-muted-foreground">
-            Carregue arquivos Web of Science ou busque diretamente no OpenAlex para iniciar a análise.
+            Carregue arquivos Web of Science, busque no OpenAlex ou na API WoS para iniciar a análise.
           </p>
         </div>
 
         <Tabs defaultValue="upload" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="upload" className="gap-2">
               <Upload className="size-4" />
               Upload
@@ -218,6 +295,10 @@ export default function HomePage() {
             <TabsTrigger value="openalex" className="gap-2">
               <Globe className="size-4" />
               OpenAlex
+            </TabsTrigger>
+            <TabsTrigger value="wos" className="gap-2">
+              <Database className="size-4" />
+              Web of Science
             </TabsTrigger>
             <TabsTrigger value="saved" className="gap-2">
               <Bookmark className="size-4" />
@@ -572,6 +653,244 @@ export default function HomePage() {
                       <strong>{oaCount.toLocaleString("pt-BR")}</strong> trabalhos encontrados.
                       {oaCount > (oaParams.maxRecords ?? 1000) && (
                         <span className="text-muted-foreground"> Serão baixados os primeiros {oaParams.maxRecords?.toLocaleString("pt-BR")}.</span>
+                      )}
+                    </span>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Web of Science Tab */}
+          <TabsContent value="wos">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Database className="size-5" />
+                  Busca na API Web of Science
+                </CardTitle>
+                <CardDescription>
+                  Acesse a base Clarivate via WoS Starter API. Requer assinatura institucional.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Info alert */}
+                <div className="flex items-start gap-2 text-sm p-3 rounded-md bg-blue-50 dark:bg-blue-950/30 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-800">
+                  <Info className="size-4 shrink-0 mt-0.5" />
+                  <span>
+                    A API WoS Starter não inclui resumos, endereços completos e financiamento.
+                    Ative &quot;Enriquecer com OpenAlex&quot; para complementar automaticamente.
+                  </span>
+                </div>
+
+                {/* API Key */}
+                <div className="space-y-1.5">
+                  <Label>API Key Clarivate *</Label>
+                  <Input
+                    type="password"
+                    placeholder="Cole sua API Key do WoS Starter aqui"
+                    value={wosParams.apiKey}
+                    onChange={(e) => setWosParams((p) => ({ ...p, apiKey: e.target.value }))}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Obtenha em{" "}
+                    <a href="https://developer.clarivate.com/apis/wos-starter" target="_blank" rel="noopener noreferrer" className="underline">
+                      developer.clarivate.com
+                    </a>. Requer assinatura institucional.
+                  </p>
+                </div>
+
+                {/* Advanced mode toggle */}
+                <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-2 cursor-pointer text-sm">
+                    <Checkbox
+                      checked={wosAdvancedMode}
+                      onCheckedChange={(v) => setWosAdvancedMode(!!v)}
+                    />
+                    Modo avançado (query WoS manual)
+                  </label>
+                </div>
+
+                {wosAdvancedMode ? (
+                  <div className="space-y-1.5">
+                    <Label>Query WoS</Label>
+                    <Textarea
+                      placeholder="ex: TS=(machine learning) AND OG=(UTFPR) AND PY=2020-2025"
+                      rows={3}
+                      value={wosParams.rawQuery ?? ""}
+                      onChange={(e) => setWosParams((p) => ({ ...p, rawQuery: e.target.value }))}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Sintaxe WoS avançada: TS (tópico), AU (autor), SO (periódico), OG (organização), DO (DOI), PY (ano), DT (tipo).
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label>Tópico (TS)</Label>
+                      <Input
+                        placeholder="ex: machine learning AND health"
+                        value={wosParams.topic ?? ""}
+                        onChange={(e) => setWosParams((p) => ({ ...p, topic: e.target.value }))}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Suporta operadores WoS: AND, OR, NOT, aspas, *.
+                      </p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Autor (AU)</Label>
+                      <Input
+                        placeholder="ex: Silva J*"
+                        value={wosParams.author ?? ""}
+                        onChange={(e) => setWosParams((p) => ({ ...p, author: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Periódico / Fonte (SO)</Label>
+                      <Input
+                        placeholder="ex: Nature"
+                        value={wosParams.source ?? ""}
+                        onChange={(e) => setWosParams((p) => ({ ...p, source: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Organização (OG)</Label>
+                      <Input
+                        placeholder="ex: Federal University Technology Parana"
+                        value={wosParams.organization ?? ""}
+                        onChange={(e) => setWosParams((p) => ({ ...p, organization: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>DOI (DO)</Label>
+                      <Input
+                        placeholder="ex: 10.1000/xyz123"
+                        value={wosParams.doi ?? ""}
+                        onChange={(e) => setWosParams((p) => ({ ...p, doi: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <Separator />
+
+                <div className="grid gap-3 sm:grid-cols-5">
+                  <div className="space-y-1.5">
+                    <Label>Ano início</Label>
+                    <Input
+                      type="number"
+                      min={1900}
+                      max={new Date().getFullYear()}
+                      value={wosParams.yearStart ?? ""}
+                      onChange={(e) => setWosParams((p) => ({ ...p, yearStart: Number(e.target.value) || undefined }))}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Ano fim</Label>
+                    <Input
+                      type="number"
+                      min={1900}
+                      max={new Date().getFullYear()}
+                      value={wosParams.yearEnd ?? ""}
+                      onChange={(e) => setWosParams((p) => ({ ...p, yearEnd: Number(e.target.value) || undefined }))}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Base de dados</Label>
+                    <Select
+                      value={wosParams.database ?? "WOS"}
+                      onValueChange={(v) => setWosParams((p) => ({ ...p, database: v }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(WOS_DATABASES).map(([key, label]) => (
+                          <SelectItem key={key} value={key}>{label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Ordenar</Label>
+                    <Select
+                      value={wosParams.sortField ?? "RS+D"}
+                      onValueChange={(v) => setWosParams((p) => ({ ...p, sortField: v }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {WOS_SORT_OPTIONS.map((o) => (
+                          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Máx. registros</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={10000}
+                      value={wosParams.maxRecords}
+                      onChange={(e) => setWosParams((p) => ({ ...p, maxRecords: Number(e.target.value) || 1000 }))}
+                    />
+                  </div>
+                </div>
+
+                {/* Enrichment options */}
+                <div className="space-y-3">
+                  <label className="flex items-center gap-2 cursor-pointer text-sm font-medium">
+                    <Checkbox
+                      checked={wosEnrich}
+                      onCheckedChange={(v) => setWosEnrich(!!v)}
+                    />
+                    <Sparkles className="size-4 text-amber-500" />
+                    Enriquecer com OpenAlex
+                  </label>
+                  {wosEnrich && (
+                    <div className="grid gap-3 sm:grid-cols-2 pl-6">
+                      <div className="space-y-1.5">
+                        <Label>E-mail OpenAlex</Label>
+                        <Input
+                          type="email"
+                          placeholder="seu@email.com (opcional)"
+                          value={wosOaEmail}
+                          onChange={(e) => setWosOaEmail(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>API Key OpenAlex</Label>
+                        <Input
+                          type="password"
+                          placeholder="Opcional — premium"
+                          value={wosOaApiKey}
+                          onChange={(e) => setWosOaApiKey(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={handleWosCheckCount} disabled={loading}>
+                    <Search className="size-4" />
+                    Verificar quantidade
+                  </Button>
+                  <Button onClick={handleWosSearch} disabled={loading} className="flex-1">
+                    {loading ? <Loader2 className="size-4 animate-spin" /> : <Search className="size-4" />}
+                    {loading ? (wosProgress ?? "Buscando...") : "Buscar e Analisar"}
+                  </Button>
+                </div>
+
+                {wosCount !== null && !loading && (
+                  <div className="flex items-center gap-2 text-sm p-3 rounded-md bg-muted">
+                    <AlertCircle className="size-4 text-muted-foreground" />
+                    <span>
+                      <strong>{wosCount.toLocaleString("pt-BR")}</strong> trabalhos encontrados.
+                      {wosCount > (wosParams.maxRecords ?? 1000) && (
+                        <span className="text-muted-foreground"> Serão baixados os primeiros {wosParams.maxRecords?.toLocaleString("pt-BR")}.</span>
                       )}
                     </span>
                   </div>

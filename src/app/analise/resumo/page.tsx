@@ -39,7 +39,7 @@ export default function ResumoPage() {
   const exportAuthors = useCallback(() => {
     const rows = authors.map((a) => ({
       Autor: a.name, Docs: a.count, Citações: a.citations,
-      "h-Index": a.hIndex, "1ªPub": a.firstYear, "ÚltPub": a.lastYear,
+      "h-Index": a.hIndex, "1ºPub": a.firstYear, "ÚltPub": a.lastYear,
     }));
     downloadCsv(rows, "authors.csv");
     toast.success("Autores exportados.");
@@ -68,7 +68,7 @@ export default function ResumoPage() {
       zip.file("data.csv", mainCsv);
 
       // Authors
-      const authCsv = ["Autor,Docs,Citações,hIndex,1ªPub,ÚltPub", ...authors.map(a =>
+      const authCsv = ["Autor,Docs,Citações,hIndex,1ºPub,ÚltPub", ...authors.map(a =>
         `"${a.name}",${a.count},${a.citations},${a.hIndex},${a.firstYear},${a.lastYear}`
       )].join("\n");
       zip.file("authors.csv", authCsv);
@@ -91,7 +91,7 @@ export default function ResumoPage() {
       const summary = [
         `BibAnalize - Resumo da Análise`,
         `Data: ${new Date().toLocaleDateString("pt-BR")}`,
-        `Fonte: ${source === "openalex" ? "OpenAlex" : "Web of Science"}`,
+        `Fonte: ${source === "openalex" ? "OpenAlex" : source === "wos" ? "Web of Science (API)" : "Web of Science"}`,
         fileName ? `Arquivo: ${fileName}` : "",
         ``,
         `Total de Documentos: ${kpis?.totalWorks}`,
@@ -99,7 +99,7 @@ export default function ResumoPage() {
         `Fontes Únicas: ${kpis?.uniqueSources}`,
         `Total de Citações: ${kpis?.totalCitations}`,
         `Período: ${kpis?.yearRange[0]}-${kpis?.yearRange[1]}`,
-        `Média de Citações/Doc: ${kpis ? (kpis.totalCitations / kpis.totalWorks).toFixed(1) : ""}`,
+        `Média Citações/Doc: ${kpis ? (kpis.totalCitations / kpis.totalWorks).toFixed(1) : ""}`,
       ].join("\n");
       zip.file("summary.txt", summary);
 
@@ -122,7 +122,7 @@ export default function ResumoPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Resumo & Exportação" description="Visão geral e exportação dos resultados" />
+      <PageHeader title="Resumo & Exportação" description="Visão geral e download dos resultados" />
 
       <KpiGrid>
         <KpiCard title="Documentos" value={kpis.totalWorks} icon={<FileText className="size-5" />} />
@@ -134,7 +134,7 @@ export default function ResumoPage() {
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <Card className="py-4"><CardContent className="px-4">
-          <p className="text-xs text-muted-foreground uppercase">Média de Citações/Doc</p>
+          <p className="text-xs text-muted-foreground uppercase">Média Citações/Doc</p>
           <p className="text-lg font-bold">{(kpis.totalCitations / kpis.totalWorks).toFixed(1)}</p>
         </CardContent></Card>
         <Card className="py-4"><CardContent className="px-4">
@@ -143,7 +143,7 @@ export default function ResumoPage() {
         </CardContent></Card>
         <Card className="py-4"><CardContent className="px-4">
           <p className="text-xs text-muted-foreground uppercase">Fonte dos Dados</p>
-          <p className="text-lg font-bold">{source === "openalex" ? "OpenAlex" : "Web of Science"}</p>
+          <p className="text-lg font-bold">{source === "openalex" ? "OpenAlex" : source === "wos" ? "Web of Science (API)" : "Web of Science"}</p>
         </CardContent></Card>
       </div>
 
@@ -152,7 +152,7 @@ export default function ResumoPage() {
       <Card>
         <CardHeader>
           <CardTitle>Exportar Dados</CardTitle>
-          <CardDescription>Exporte os dados da análise em diferentes formatos</CardDescription>
+          <CardDescription>Baixe os dados da análise em diferentes formatos</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">

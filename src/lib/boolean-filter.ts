@@ -81,11 +81,24 @@ function parseFactor(tokens: Token[], pos: number): [AstNode, number] {
   return [{ kind: "WORD", value: "" }, pos + 1];
 }
 
+/** Cache compiled regexes for performance (avoids re-compiling on every record). */
+const regexCache = new Map<string, RegExp>();
+
+function getWordBoundaryRegex(value: string): RegExp {
+  let re = regexCache.get(value);
+  if (!re) {
+    const escaped = value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    re = new RegExp(`\\b${escaped}\\b`);
+    regexCache.set(value, re);
+  }
+  return re;
+}
+
 function evalNode(node: AstNode, text: string): boolean {
   switch (node.kind) {
     case "WORD":
     case "PHRASE":
-      return text.includes(node.value);
+      return getWordBoundaryRegex(node.value).test(text);
     case "AND":
       return evalNode(node.left, text) && evalNode(node.right, text);
     case "OR":
@@ -104,6 +117,19 @@ export function hasBooleanOperators(query: string): boolean {
 
 const TEXT_FIELDS: (keyof BibWork)[] = ["TI", "AB", "DE", "ID"];
 
+/**
+ * Build a single lowercase searchable string for a work.
+ * Call once per work and reuse to avoid repeated concatenation + toLowerCase().
+ */
+export function buildSearchableText(w: Partial<BibWork>): string {
+  const parts: string[] = [];
+  for (const field of TEXT_FIELDS) {
+    const v = w[field];
+    if (v != null && v !== "") parts.push(String(v));
+  }
+  return parts.join(" ").toLowerCase();
+}
+
 export function booleanPostFilter(
   works: Partial<BibWork>[],
   query: string,
@@ -115,11 +141,7 @@ export function booleanPostFilter(
   const [ast] = parseExpr(tokens, 0);
 
   return works.filter((w) => {
-    const parts: string[] = [];
-    for (const field of TEXT_FIELDS) {
-      const v = w[field];
-      if (v != null && v !== "") parts.push(String(v));
-    }
-    return evalNode(ast, parts.join(" ").toLowerCase());
+    const text = (w as Record<string, unknown>)._searchText as string | undefined;
+    return evalNode(ast, text ?? buildSearchableText(w));
   });
 }

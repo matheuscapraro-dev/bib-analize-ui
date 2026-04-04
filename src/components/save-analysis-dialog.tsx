@@ -27,7 +27,7 @@ export function SaveAnalysisDialog({ open, onOpenChange }: SaveAnalysisDialogPro
   const { works, source, fileName, searchParams, savedId, setSavedId } = useBib();
   const { save } = useSavedAnalyses();
 
-  const defaultName = fileName ?? (source === "openalex" ? "Busca OpenAlex" : "Upload");
+  const defaultName = fileName ?? (source === "openalex" ? "Busca OpenAlex" : source === "wos" ? "Busca WoS" : "Upload");
   const [name, setName] = useState(defaultName);
   const [saving, setSaving] = useState(false);
 

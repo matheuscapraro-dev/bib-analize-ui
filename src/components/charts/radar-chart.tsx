@@ -43,7 +43,7 @@ export function RadarChart({
         <PolarGrid className="stroke-border" />
         <PolarAngleAxis
           dataKey={labelKey ?? dimensionKey}
-          tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+          tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
         />
         <PolarRadiusAxis
           angle={30}

@@ -45,6 +45,9 @@ function renderLabel(props: PieLabelRenderProps) {
       dominantBaseline="central"
       className="fill-foreground"
       fontSize={11}
+      stroke="var(--background)"
+      strokeWidth={3}
+      paintOrder="stroke"
     >
       {truncateLabel(name, 20)} ({(percent * 100).toFixed(0)}%)
     </text>
@@ -65,7 +68,7 @@ export function PieChart({ data, height = 350, showLegend = true, innerRadius = 
           outerRadius="70%"
           paddingAngle={1}
           label={renderLabel}
-          labelLine={{ stroke: "hsl(var(--muted-foreground))", strokeWidth: 1 }}
+          labelLine={{ stroke: "var(--muted-foreground)", strokeWidth: 1 }}
           style={{ fontSize: 11 }}
         >
           {data.map((_, i) => (

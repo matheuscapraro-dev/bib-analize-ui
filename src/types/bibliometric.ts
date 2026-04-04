@@ -100,7 +100,7 @@ export interface NetworkData {
   edges: NetworkEdge[];
 }
 
-export type DataSource = "openalex" | "upload";
+export type DataSource = "openalex" | "upload" | "wos";
 
 export interface SavedAnalysis {
   id: string;

@@ -88,7 +88,7 @@ export function ComparisonBarChart({
         <Tooltip
           contentStyle={TOOLTIP_STYLE}
           labelStyle={TOOLTIP_LABEL_STYLE}
-          cursor={{ fill: "hsl(var(--muted) / 0.3)" }}
+          cursor={{ fill: "color-mix(in oklch, var(--muted) 30%, transparent)" }}
         />
         {showLegend && <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />}
         {datasets.map((ds) => (

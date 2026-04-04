@@ -50,17 +50,22 @@ export function paletteHex(index: number): string {
 // ---------------------------------------------------------------------------
 
 export const TOOLTIP_STYLE: React.CSSProperties = {
-  background: "hsl(var(--popover))",
-  color: "hsl(var(--popover-foreground))",
-  border: "1px solid hsl(var(--border))",
+  background: "var(--popover)",
+  color: "var(--popover-foreground)",
+  border: "1px solid var(--border)",
   borderRadius: 8,
   fontSize: 12,
   boxShadow: "0 4px 12px rgba(0,0,0,.15)",
+  maxWidth: 320,
+  whiteSpace: "normal",
+  wordBreak: "break-word",
 };
 
 export const TOOLTIP_LABEL_STYLE: React.CSSProperties = {
   fontWeight: 600,
   marginBottom: 2,
+  whiteSpace: "normal",
+  wordBreak: "break-word",
 };
 
 // ---------------------------------------------------------------------------

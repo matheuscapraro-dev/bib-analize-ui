@@ -47,7 +47,7 @@ export default function AnaliseLayout({ children }: { children: React.ReactNode 
           </Button>
           <Database className="size-4 text-muted-foreground" />
           <span className="text-sm font-medium truncate">
-            {source === "openalex" ? "OpenAlex" : "Web of Science"}
+            {source === "openalex" ? "OpenAlex" : source === "wos" ? "Web of Science" : "Web of Science (Upload)"}
           </span>
           {fileName && <span className="text-xs text-muted-foreground truncate hidden sm:inline">— {fileName}</span>}
           <Badge variant="secondary" className="ml-auto shrink-0">{works.length} registros</Badge>

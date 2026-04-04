@@ -6,6 +6,41 @@ const OPENALEX_BASE = "https://api.openalex.org";
 const PER_PAGE = 100;
 const CONTACT_EMAIL = "bibliometrics@analysis.app";
 
+/* ── Rate-limit & concurrency constants ──────────────────── */
+const DELAY_WITH_KEY = 105;      // ms — API key allows ~10 req/s
+const DELAY_WITHOUT_KEY = 150;   // ms — polite pool ~7 req/s
+const PARALLEL_CONCURRENCY = 3;  // max concurrent page fetches
+/** OpenAlex page-based pagination hard limit (page * per_page ≤ 10 000) */
+const MAX_PAGE_OFFSET = 10_000;
+
+/* ── Lightweight request cache (TTL-based) ───────────────── */
+const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+const requestCache = new Map<string, { data: unknown; ts: number }>();
+
+function cacheGet<T>(key: string): T | undefined {
+  const entry = requestCache.get(key);
+  if (!entry) return undefined;
+  if (Date.now() - entry.ts > CACHE_TTL) { requestCache.delete(key); return undefined; }
+  return entry.data as T;
+}
+
+function cacheSet(key: string, data: unknown): void {
+  requestCache.set(key, { data, ts: Date.now() });
+}
+
+/** Evict expired entries (called lazily). */
+function cacheEvict(): void {
+  const now = Date.now();
+  for (const [k, v] of requestCache) {
+    if (now - v.ts > CACHE_TTL) requestCache.delete(k);
+  }
+}
+
+/** Clear the entire request cache. */
+export function clearRequestCache(): void {
+  requestCache.clear();
+}
+
 function invertAbstract(inverted: Record<string, number[]> | null): string {
   if (!inverted) return "";
   const words: [number, string][] = [];
@@ -276,6 +311,12 @@ function buildFilters(params: OpenAlexSearchParams): { search: string | null; fi
 export async function getOpenAlexCount(params: OpenAlexSearchParams): Promise<number> {
   const { search, filter } = buildFilters(params);
   if (!search && !filter) throw new Error("Nenhum filtro ou busca definido.");
+
+  // Check cache
+  const cacheKey = `count:${search ?? ""}|${filter ?? ""}`;
+  const cached = cacheGet<number>(cacheKey);
+  if (cached !== undefined) return cached;
+
   const urlParams = new URLSearchParams();
   urlParams.set("per_page", "1");
   if (params.apiKey) {
@@ -292,7 +333,9 @@ export async function getOpenAlexCount(params: OpenAlexSearchParams): Promise<nu
     throw new Error(`OpenAlex error ${resp.status}: ${body.slice(0, 200)}`);
   }
   const data = await resp.json();
-  return data.meta?.count ?? 0;
+  const count = data.meta?.count ?? 0;
+  cacheSet(cacheKey, count);
+  return count;
 }
 
 export async function fetchOpenAlexWorks(
@@ -302,66 +345,137 @@ export async function fetchOpenAlexWorks(
   const { search, filter } = buildFilters(params);
   if (!search && !filter) throw new Error("Nenhum filtro ou busca definido.");
   const maxRecords = params.maxRecords ?? 1000;
+  const delay = params.apiKey ? DELAY_WITH_KEY : DELAY_WITHOUT_KEY;
+
   // relevance_score requires a search query — fall back to cited_by_count when no search
   let sort = params.sort ?? "relevance_score:desc";
   if (!search && sort.startsWith("relevance_score")) {
     sort = "cited_by_count:desc";
   }
   const useBoolean = params.strictBoolean !== false && !!params.topic && hasBooleanOperators(params.topic);
-  const internalMax = useBoolean ? maxRecords * 5 : maxRecords;
 
-  const urlParams = new URLSearchParams();
-  urlParams.set("per_page", String(PER_PAGE));
-  urlParams.set("cursor", "*");
+  // ── Build base URL params (shared by all page fetches) ──
+  const baseParams = new URLSearchParams();
+  baseParams.set("per_page", String(PER_PAGE));
   if (params.apiKey) {
-    urlParams.set("api_key", params.apiKey);
+    baseParams.set("api_key", params.apiKey);
   } else {
-    urlParams.set("mailto", params.email || CONTACT_EMAIL);
+    baseParams.set("mailto", params.email || CONTACT_EMAIL);
   }
-  if (search) urlParams.set("search", search);
-  if (filter) urlParams.set("filter", filter);
-  if (sort) urlParams.set("sort", sort);
+  if (search) baseParams.set("search", search);
+  if (filter) baseParams.set("filter", filter);
+  if (sort) baseParams.set("sort", sort);
 
-  const resp = await fetch(`${OPENALEX_BASE}/works?${urlParams}`);
+  // ── First request (cursor=*) to get count + first page ──
+  const firstParams = new URLSearchParams(baseParams);
+  firstParams.set("cursor", "*");
+  const resp = await fetch(`${OPENALEX_BASE}/works?${firstParams}`);
   if (!resp.ok) {
     const body = await resp.text().catch(() => "");
     throw new Error(`OpenAlex error ${resp.status}: ${body.slice(0, 200)}`);
   }
-  let data = await resp.json();
-  const totalAvailable = data.meta?.count ?? 0;
+  let firstData = await resp.json();
+  const totalAvailable = firstData.meta?.count ?? 0;
   if (totalAvailable === 0) return [];
 
-  const toFetch = Math.min(totalAvailable, internalMax);
+  // For boolean queries: use adaptive fetching (stop when we have enough passing records)
+  // For normal queries: fetch exactly what we need
+  const targetFetch = useBoolean
+    ? Math.min(totalAvailable, maxRecords * 5) // cap at 5× but we'll stop early
+    : Math.min(totalAvailable, maxRecords);
+
   const allRows: Partial<BibWork>[] = [];
+  for (const w of firstData.results ?? []) allRows.push(workToRow(w));
+  onProgress?.(Math.min(allRows.length, maxRecords), useBoolean ? maxRecords : targetFetch);
 
-  for (const w of data.results ?? []) allRows.push(workToRow(w));
-  onProgress?.(allRows.length, toFetch);
-
-  while (allRows.length < toFetch) {
-    const nextCursor = data.meta?.next_cursor;
-    if (!nextCursor) break;
-
-    urlParams.set("cursor", nextCursor);
-    await new Promise((r) => setTimeout(r, 120));
-    const resp2 = await fetch(`${OPENALEX_BASE}/works?${urlParams}`);
-    if (!resp2.ok) break;
-    data = await resp2.json();
-    const results = data.results ?? [];
-    if (!results.length) break;
-
-    for (const w of results) {
-      if (allRows.length >= toFetch) break;
-      allRows.push(workToRow(w));
+  // Check if first page already satisfies - skip parallel fetch
+  if (allRows.length >= targetFetch) {
+    if (useBoolean) {
+      return booleanPostFilter(allRows, params.topic!).slice(0, maxRecords);
     }
-    onProgress?.(allRows.length, toFetch);
+    return allRows.slice(0, maxRecords);
   }
+
+  const totalPages = Math.ceil(targetFetch / PER_PAGE);
+  const canUseParallel = targetFetch <= MAX_PAGE_OFFSET;
+
+  if (canUseParallel && totalPages > 1) {
+    // ── Parallel page-based fetching ──
+    // Pages 2..N fetched in concurrent waves of PARALLEL_CONCURRENCY
+    const pagesToFetch: number[] = [];
+    for (let p = 2; p <= totalPages; p++) pagesToFetch.push(p);
+
+    // Helper: fetch a single page by page number
+    const fetchPage = async (pageNum: number): Promise<Partial<BibWork>[]> => {
+      const p = new URLSearchParams(baseParams);
+      p.set("page", String(pageNum));
+      const r = await fetch(`${OPENALEX_BASE}/works?${p}`);
+      if (!r.ok) return [];
+      const d = await r.json();
+      return ((d.results ?? []) as Record<string, unknown>[]).map(workToRow);
+    };
+
+    // Track boolean-filtered count for adaptive early termination
+    let booleanPassedCount = useBoolean
+      ? booleanPostFilter(allRows, params.topic!).length
+      : 0;
+
+    for (let i = 0; i < pagesToFetch.length; i += PARALLEL_CONCURRENCY) {
+      // Early termination for boolean: stop when we have enough passing records
+      if (useBoolean && booleanPassedCount >= maxRecords) break;
+
+      const wave = pagesToFetch.slice(i, i + PARALLEL_CONCURRENCY);
+      if (i > 0) await new Promise((r) => setTimeout(r, delay));
+      const waveResults = await Promise.all(wave.map(fetchPage));
+
+      for (const pageRows of waveResults) {
+        for (const row of pageRows) {
+          if (allRows.length >= targetFetch) break;
+          allRows.push(row);
+        }
+        // Track boolean yield per wave for adaptive stop
+        if (useBoolean) {
+          booleanPassedCount += booleanPostFilter(pageRows, params.topic!).length;
+        }
+      }
+      onProgress?.(
+        useBoolean ? Math.min(booleanPassedCount, maxRecords) : Math.min(allRows.length, maxRecords),
+        useBoolean ? maxRecords : targetFetch,
+      );
+    }
+  } else if (totalPages > 1) {
+    // ── Fallback: sequential cursor pagination (for > 10K results) ──
+    let data = firstData;
+    while (allRows.length < targetFetch) {
+      const nextCursor = data.meta?.next_cursor;
+      if (!nextCursor) break;
+
+      const cursorParams = new URLSearchParams(baseParams);
+      cursorParams.set("cursor", nextCursor);
+      await new Promise((r) => setTimeout(r, delay));
+      const resp2 = await fetch(`${OPENALEX_BASE}/works?${cursorParams}`);
+      if (!resp2.ok) break;
+      data = await resp2.json();
+      const results = data.results ?? [];
+      if (!results.length) break;
+
+      for (const w of results) {
+        if (allRows.length >= targetFetch) break;
+        allRows.push(workToRow(w));
+      }
+      onProgress?.(Math.min(allRows.length, maxRecords), useBoolean ? maxRecords : targetFetch);
+    }
+  }
+
+  // Lazy cache eviction
+  if (requestCache.size > 50) cacheEvict();
 
   if (useBoolean) {
     const filtered = booleanPostFilter(allRows, params.topic!);
     return filtered.slice(0, maxRecords);
   }
 
-  return allRows;
+  return allRows.slice(0, maxRecords);
 }
 
 /** Search the OpenAlex /topics endpoint and return matching topics. */
@@ -370,6 +484,11 @@ export async function searchTopics(
   params?: Pick<OpenAlexSearchParams, "email" | "apiKey">,
 ): Promise<OpenAlexTopic[]> {
   if (!query.trim()) return [];
+
+  // Check cache
+  const cacheKey = `topics:${query.trim().toLowerCase()}`;
+  const cached = cacheGet<OpenAlexTopic[]>(cacheKey);
+  if (cached) return cached;
 
   const urlParams = new URLSearchParams();
   urlParams.set("search", query);
@@ -384,7 +503,7 @@ export async function searchTopics(
   if (!resp.ok) return [];
   const data = await resp.json();
 
-  return ((data.results ?? []) as Record<string, unknown>[]).map((t) => ({
+  const results = ((data.results ?? []) as Record<string, unknown>[]).map((t) => ({
     id: String(t.id ?? ""),
     display_name: String(t.display_name ?? ""),
     description: String(t.description ?? ""),
@@ -393,4 +512,6 @@ export async function searchTopics(
     field: (t.field ?? { id: "", display_name: "" }) as OpenAlexTopic["field"],
     domain: (t.domain ?? { id: "", display_name: "" }) as OpenAlexTopic["domain"],
   }));
+  cacheSet(cacheKey, results);
+  return results;
 }

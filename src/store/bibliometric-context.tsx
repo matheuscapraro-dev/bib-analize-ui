@@ -11,6 +11,29 @@ import {
 import type { BibWork, DataSource, FilterState, KpiData } from "@/types/bibliometric";
 import { computeKpis } from "@/lib/data-processing";
 
+/* ---------- Helpers ---------- */
+
+/**
+ * Pre-build a lowercase searchable text string for a work.
+ * Stored as `_searchText` on the work object to avoid re-computing on every filter change.
+ */
+function buildSearchText(w: BibWork): string {
+  return [w.TI ?? "", w.AU ?? "", w.SO ?? "", w.DE ?? "", w.AB ?? ""]
+    .join(" ")
+    .toLowerCase();
+}
+
+/**
+ * Attach `_searchText` to every work. Called once on SET_DATA.
+ * Mutates in-place for efficiency (works array is freshly created).
+ */
+function prepareWorks(works: BibWork[]): BibWork[] {
+  for (const w of works) {
+    w._searchText = buildSearchText(w);
+  }
+  return works;
+}
+
 /* ---------- State ---------- */
 interface BibState {
   works: BibWork[];
@@ -72,14 +95,18 @@ function applyFilters(works: BibWork[], f: FilterState): BibWork[] {
     result = result.filter((w) => f.oaStatuses.includes(w.OA ?? ""));
   if (f.search) {
     const q = f.search.toLowerCase();
-    result = result.filter(
-      (w) =>
+    result = result.filter((w) => {
+      // Use pre-built _searchText when available (avoids 5× toLowerCase per record)
+      const text = w._searchText as string | undefined;
+      if (text) return text.includes(q);
+      return (
         (w.TI ?? "").toLowerCase().includes(q) ||
         (w.AU ?? "").toLowerCase().includes(q) ||
         (w.SO ?? "").toLowerCase().includes(q) ||
         (w.DE ?? "").toLowerCase().includes(q) ||
-        (w.AB ?? "").toLowerCase().includes(q),
-    );
+        (w.AB ?? "").toLowerCase().includes(q)
+      );
+    });
   }
   return result;
 }
@@ -91,7 +118,7 @@ function reducer(state: BibState, action: Action): BibState {
     case "SET_ERROR":
       return { ...state, error: action.payload, loading: false };
     case "SET_DATA": {
-      const works = action.payload.works;
+      const works = prepareWorks(action.payload.works);
       const filtered = applyFilters(works, state.filters);
       return {
         ...state,

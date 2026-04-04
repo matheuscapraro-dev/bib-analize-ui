@@ -118,7 +118,7 @@ export function SavedAnalysesList() {
         <Bookmark className="size-12 mb-4 opacity-30" />
         <p className="font-medium">Nenhuma análise salva</p>
         <p className="text-sm mt-1">
-          Realize uma busca ou importe arquivos e salve a análise para acessá-la posteriormente.
+          Faça uma busca ou upload e salve a análise para acessá-la depois.
         </p>
       </div>
     );
@@ -149,6 +149,11 @@ export function SavedAnalysesList() {
                     <Badge variant="secondary" className="text-[10px] gap-1 px-1.5 py-0">
                       <Database className="size-2.5" />
                       OpenAlex
+                    </Badge>
+                  ) : a.source === "wos" ? (
+                    <Badge variant="secondary" className="text-[10px] gap-1 px-1.5 py-0">
+                      <Database className="size-2.5" />
+                      WoS
                     </Badge>
                   ) : (
                     <Badge variant="secondary" className="text-[10px] gap-1 px-1.5 py-0">
@@ -198,7 +203,7 @@ export function SavedAnalysesList() {
           <DialogHeader>
             <DialogTitle>Excluir análise</DialogTitle>
             <DialogDescription>
-              Tem certeza de que deseja excluir &ldquo;{deleteTarget?.name}&rdquo;? Esta ação não pode ser desfeita.
+              Tem certeza que deseja excluir &ldquo;{deleteTarget?.name}&rdquo;? Esta ação não pode ser desfeita.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
