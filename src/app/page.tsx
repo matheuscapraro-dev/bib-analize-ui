@@ -774,7 +774,7 @@ export default function HomePage() {
 
                 <Separator />
 
-                <div className="grid gap-3 sm:grid-cols-5">
+                <div className="grid gap-3 sm:grid-cols-6">
                   <div className="space-y-1.5">
                     <Label>Ano início</Label>
                     <Input
@@ -795,7 +795,7 @@ export default function HomePage() {
                       onChange={(e) => setWosParams((p) => ({ ...p, yearEnd: Number(e.target.value) || undefined }))}
                     />
                   </div>
-                  <div className="space-y-1.5">
+                  <div className="space-y-1.5 sm:col-span-2">
                     <Label>Base de dados</Label>
                     <Select
                       value={wosParams.database ?? "WOS"}
