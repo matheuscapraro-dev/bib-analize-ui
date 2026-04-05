@@ -497,6 +497,19 @@ export function countValues(data: BibWork[], field: string): Map<string, number>
   return map;
 }
 
+/**
+ * Return works whose `field` contains `value` as one of its semicolon-separated parts.
+ * Mirrors the splitting logic in `countValues` so the counts always match.
+ */
+export function filterWorksByField(data: BibWork[], field: string, value: string): BibWork[] {
+  const needle = value.toLowerCase().trim();
+  return data.filter((w) => {
+    const raw = val(w, field);
+    if (!raw) return false;
+    return safeSplit(raw).some((part) => part.trim().toLowerCase() === needle);
+  });
+}
+
 export function getCountryIso(country: string): string | undefined {
   return COUNTRY_ISO[country];
 }

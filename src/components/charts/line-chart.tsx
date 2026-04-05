@@ -34,6 +34,7 @@ interface LineChartProps {
   height?: number;
   showGrid?: boolean;
   showLegend?: boolean;
+  onDotClick?: (entry: Record<string, unknown>) => void;
 }
 
 export function LineChart({
@@ -43,10 +44,21 @@ export function LineChart({
   height = 350,
   showGrid = true,
   showLegend = false,
+  onDotClick,
 }: LineChartProps) {
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <RechartsLineChart data={data} margin={MARGIN_DEFAULT}>
+      <RechartsLineChart
+        data={data}
+        margin={MARGIN_DEFAULT}
+        onClick={onDotClick ? (state: Record<string, unknown>) => {
+          const ap = state?.activePayload as { payload: Record<string, unknown> }[] | undefined;
+          if (ap?.[0]?.payload) {
+            onDotClick(ap[0].payload);
+          }
+        } : undefined}
+        style={onDotClick ? { cursor: "pointer" } : undefined}
+      >
         {showGrid && <CartesianGrid strokeDasharray={GRID_DASH} className="stroke-border" />}
         <XAxis dataKey={xKey} tick={AXIS_TICK} className={AXIS_CLASS} />
         <YAxis tick={AXIS_TICK} className={AXIS_CLASS} />

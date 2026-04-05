@@ -19,6 +19,10 @@ function SheetOverlay({ className, ...props }: React.ComponentProps<typeof Dialo
   );
 }
 
+function SheetTitle({ className, ...props }: React.ComponentProps<typeof DialogPrimitive.Title>) {
+  return <DialogPrimitive.Title className={className} {...props} />;
+}
+
 function SheetContent({
   className,
   children,
@@ -29,6 +33,7 @@ function SheetContent({
     <DialogPrimitive.Portal>
       <SheetOverlay />
       <DialogPrimitive.Content
+        aria-describedby={undefined}
         className={cn(
           "fixed z-50 bg-background shadow-lg transition-transform duration-300 ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out",
           side === "left" &&
@@ -39,6 +44,7 @@ function SheetContent({
         )}
         {...props}
       >
+        <DialogPrimitive.Title className="sr-only">Painel</DialogPrimitive.Title>
         {children}
         <DialogPrimitive.Close className="absolute top-3 right-3 rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
           <XIcon className="size-4" />
@@ -49,4 +55,4 @@ function SheetContent({
   );
 }
 
-export { Sheet, SheetTrigger, SheetClose, SheetContent };
+export { Sheet, SheetTrigger, SheetClose, SheetContent, SheetTitle };

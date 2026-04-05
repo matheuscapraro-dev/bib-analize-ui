@@ -22,9 +22,10 @@ interface DataTableProps<T> {
   searchColumn?: string;
   searchPlaceholder?: string;
   pageSize?: number;
+  onRowClick?: (row: T) => void;
 }
 
-export function DataTable<T>({ columns, data, searchColumn, searchPlaceholder = "Buscar...", pageSize = 15 }: DataTableProps<T>) {
+export function DataTable<T>({ columns, data, searchColumn, searchPlaceholder = "Buscar...", pageSize = 15, onRowClick }: DataTableProps<T>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
 
@@ -75,7 +76,11 @@ export function DataTable<T>({ columns, data, searchColumn, searchPlaceholder = 
           <TableBody>
             {table.getRowModel().rows.length ? (
               table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
+                <TableRow
+                  key={row.id}
+                  onClick={onRowClick ? () => onRowClick(row.original) : undefined}
+                  className={onRowClick ? "cursor-pointer hover:bg-muted/50" : undefined}
+                >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
                   ))}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useBib } from "@/store/bibliometric-context";
 import { PageHeader } from "@/components/page-header";
 import { BarChart } from "@/components/charts/bar-chart";
@@ -10,6 +10,8 @@ import { ChartContainer } from "@/components/charts/chart-container";
 import { useChartRef, ChartExportButton } from "@/components/chart-export-button";
 import { countValues, topN, countryCollaborationNetwork, globalSouthStats } from "@/lib/data-processing";
 import { extractCountries } from "@/lib/data-processing";
+import { ArticleDrillDown } from "@/components/article-drill-down";
+import { useArticleDrillDown } from "@/hooks/use-drill-down";
 import { NetworkGraph } from "@/components/charts/network-graph";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "@/components/data-table";
@@ -35,14 +37,20 @@ export default function PaisesPage() {
   const gsPieRef = useChartRef();
   const contPieRef = useChartRef();
   const contBarRef = useChartRef();
+  const { handleDrill, drillDownProps } = useArticleDrillDown(filtered, (data, country) => {
+    const indices = new Set(extractCountries(data).filter((e) => e.país === country).map((e) => e.index));
+    return data.filter((_, i) => indices.has(i));
+  });
+
+  const countryEntries = useMemo(() => extractCountries(filtered), [filtered]);
 
   const allCountries = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const { país } of extractCountries(filtered)) {
+    for (const { país } of countryEntries) {
       counts.set(país, (counts.get(país) ?? 0) + 1);
     }
     return counts;
-  }, [filtered]);
+  }, [countryEntries]);
 
   const sorted = useMemo(() => [...allCountries.entries()].sort((a, b) => b[1] - a[1]), [allCountries]);
   const top20 = useMemo(() => sorted.slice(0, 20).map(([n, v]) => ({ name: n, count: v })), [sorted]);
@@ -77,7 +85,7 @@ export default function PaisesPage() {
         </TabsContent>
         <TabsContent value="chart">
           <ChartContainer ref={barRef} title="Top 20 Países" actions={<ChartExportButton chartRef={barRef} fileName="top-paises" />}>
-            <BarChart data={top20} xKey="name" bars={[{ key: "count", label: "Documentos" }]} layout="vertical" height={500} />
+            <BarChart data={top20} xKey="name" bars={[{ key: "count", label: "Documentos" }]} layout="vertical" height={500} onBarClick={(e) => handleDrill(String(e.name))} />
           </ChartContainer>
         </TabsContent>
         <TabsContent value="network">
@@ -118,11 +126,13 @@ export default function PaisesPage() {
           <Card>
             <CardHeader><CardTitle className="text-base">Todos os Países</CardTitle></CardHeader>
             <CardContent>
-              <DataTable columns={columns} data={tableData} searchColumn="name" searchPlaceholder="Buscar país..." />
+              <DataTable columns={columns} data={tableData} searchColumn="name" searchPlaceholder="Buscar país..." onRowClick={(row) => handleDrill(row.name)} />
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
+
+      <ArticleDrillDown {...drillDownProps} />
     </div>
   );
 }

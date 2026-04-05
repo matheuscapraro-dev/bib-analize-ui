@@ -40,6 +40,8 @@ interface BarChartProps {
   showLegend?: boolean;
   /** Max chars for Y-axis category labels in vertical (horizontal-bar) layout. */
   labelMaxLen?: number;
+  /** Called when the user clicks a bar. Receives the data entry for that bar. */
+  onBarClick?: (entry: Record<string, unknown>) => void;
 }
 
 export function BarChart({
@@ -51,6 +53,7 @@ export function BarChart({
   showGrid = true,
   showLegend = false,
   labelMaxLen = 35,
+  onBarClick,
 }: BarChartProps) {
   const isVertical = layout === "vertical";
 
@@ -114,6 +117,12 @@ export function BarChart({
             fill={b.color ?? paletteColor(i)}
             radius={isVertical ? [0, 4, 4, 0] : [4, 4, 0, 0]}
             stackId={b.stackId}
+            onClick={onBarClick ? (_data: unknown, _idx: number, e: React.MouseEvent) => {
+              const entry = (e as unknown as { payload?: Record<string, unknown> }).payload
+                ?? (_data as Record<string, unknown>);
+              onBarClick(entry);
+            } : undefined}
+            style={onBarClick ? { cursor: "pointer" } : undefined}
           />
         ))}
       </RechartsBarChart>

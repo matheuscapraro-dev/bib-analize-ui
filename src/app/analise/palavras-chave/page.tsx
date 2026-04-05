@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useBib } from "@/store/bibliometric-context";
 import { PageHeader } from "@/components/page-header";
 import { BarChart } from "@/components/charts/bar-chart";
@@ -8,6 +8,8 @@ import { WordCloud } from "@/components/charts/word-cloud";
 import { ChartContainer } from "@/components/charts/chart-container";
 import { useChartRef, ChartExportButton } from "@/components/chart-export-button";
 import { keywordCooccurrenceNetwork, extractKeywords, keywordTimeline } from "@/lib/data-processing";
+import { ArticleDrillDown } from "@/components/article-drill-down";
+import { useArticleDrillDown } from "@/hooks/use-drill-down";
 import { NetworkGraph } from "@/components/charts/network-graph";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "@/components/data-table";
@@ -33,6 +35,7 @@ export default function PalavrasChavePage() {
   const barRef = useChartRef();
   const cloudRef = useChartRef();
   const netRef = useChartRef();
+  const { handleDrill, drillDownProps } = useArticleDrillDown(filtered, kwField);
 
   const allKw = useMemo(() => {
     const allKeywords = extractKeywords(filtered, kwField);
@@ -82,7 +85,7 @@ export default function PalavrasChavePage() {
         </TabsContent>
         <TabsContent value="chart">
           <ChartContainer ref={barRef} title={`Top ${topCount} Palavras-chave`} actions={<ChartExportButton chartRef={barRef} fileName="top-keywords" />}>
-            <BarChart data={chartData} xKey="keyword" bars={[{ key: "count", label: "Frequência" }]} layout="vertical" height={Math.max(350, topCount * 25)} />
+            <BarChart data={chartData} xKey="keyword" bars={[{ key: "count", label: "Frequência" }]} layout="vertical" height={Math.max(350, topCount * 25)} onBarClick={(e) => handleDrill(String(e.keyword))} />
           </ChartContainer>
         </TabsContent>
         <TabsContent value="network">
@@ -139,11 +142,13 @@ export default function PalavrasChavePage() {
           <Card>
             <CardHeader><CardTitle className="text-base">Todas as Palavras-chave</CardTitle></CardHeader>
             <CardContent>
-              <DataTable columns={columns} data={tableData} searchColumn="keyword" searchPlaceholder="Buscar palavra-chave..." />
+              <DataTable columns={columns} data={tableData} searchColumn="keyword" searchPlaceholder="Buscar palavra-chave..." onRowClick={(row) => handleDrill(row.keyword)} />
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
+
+      <ArticleDrillDown {...drillDownProps} />
     </div>
   );
 }

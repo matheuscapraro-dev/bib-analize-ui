@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useBib } from "@/store/bibliometric-context";
 import { PageHeader } from "@/components/page-header";
 import { Treemap } from "@/components/charts/treemap";
@@ -8,6 +8,8 @@ import { BarChart } from "@/components/charts/bar-chart";
 import { ChartContainer } from "@/components/charts/chart-container";
 import { useChartRef, ChartExportButton } from "@/components/chart-export-button";
 import { countValues, topN } from "@/lib/data-processing";
+import { ArticleDrillDown } from "@/components/article-drill-down";
+import { useArticleDrillDown } from "@/hooks/use-drill-down";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "@/components/data-table";
 import { TopNSelector } from "@/components/top-n-selector";
@@ -30,6 +32,7 @@ export default function AreasPage() {
   const [topCount, setTopCount] = useState(20);
   const treeRef = useChartRef();
   const barRef = useChartRef();
+  const { handleDrill, drillDownProps } = useArticleDrillDown(filtered, field);
 
   const areaCounts = useMemo(() => countValues(filtered, field), [filtered, field]);
   const top = useMemo(() => topN(areaCounts, topCount), [areaCounts, topCount]);
@@ -63,23 +66,25 @@ export default function AreasPage() {
         </TabsList>
         <TabsContent value="treemap">
           <ChartContainer ref={treeRef} title={`Top ${topCount} Áreas`} actions={<ChartExportButton chartRef={treeRef} fileName="areas-treemap" />}>
-            <Treemap data={treeData} height={400} />
+            <Treemap data={treeData} height={400} onCellClick={(e) => handleDrill(e.name)} />
           </ChartContainer>
         </TabsContent>
         <TabsContent value="bar">
           <ChartContainer ref={barRef} title={`Top ${topCount} Áreas`} actions={<ChartExportButton chartRef={barRef} fileName="areas-bar" />}>
-            <BarChart data={barData} xKey="area" bars={[{ key: "count", label: "Documentos" }]} layout="vertical" height={Math.max(350, topCount * 25)} />
+            <BarChart data={barData} xKey="area" bars={[{ key: "count", label: "Documentos" }]} layout="vertical" height={Math.max(350, topCount * 25)} onBarClick={(e) => handleDrill(String(e.area))} />
           </ChartContainer>
         </TabsContent>
         <TabsContent value="table">
           <Card>
             <CardHeader><CardTitle className="text-base">Todas as Áreas</CardTitle></CardHeader>
             <CardContent>
-              <DataTable columns={columns} data={tableData} searchColumn="area" searchPlaceholder="Buscar área..." />
+              <DataTable columns={columns} data={tableData} searchColumn="area" searchPlaceholder="Buscar área..." onRowClick={(row) => handleDrill(row.area)} />
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
+
+      <ArticleDrillDown {...drillDownProps} />
     </div>
   );
 }

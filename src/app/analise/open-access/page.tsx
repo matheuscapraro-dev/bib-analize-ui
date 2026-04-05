@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { useBib } from "@/store/bibliometric-context";
 import { PageHeader } from "@/components/page-header";
 import { PieChart } from "@/components/charts/pie-chart";
@@ -8,6 +8,8 @@ import { BarChart } from "@/components/charts/bar-chart";
 import { ChartContainer } from "@/components/charts/chart-container";
 import { useChartRef, ChartExportButton } from "@/components/chart-export-button";
 import { countValues, topN, oaCitationImpact } from "@/lib/data-processing";
+import { ArticleDrillDown } from "@/components/article-drill-down";
+import { useArticleDrillDown } from "@/hooks/use-drill-down";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "@/components/data-table";
 import { KpiCard, KpiGrid } from "@/components/kpi-cards";
@@ -37,6 +39,7 @@ export default function OpenAccessPage() {
   const pieRef = useChartRef();
   const trendRef = useChartRef();
   const impactRef = useChartRef();
+  const { handleDrill, drillDownProps } = useArticleDrillDown(filtered, "OA");
 
   const oaCounts = useMemo(() => countValues(filtered, "OA"), [filtered]);
   const oaData = useMemo(() => topN(oaCounts, 20).map(([n, v]) => ({ name: n, value: v })), [oaCounts]);
@@ -86,7 +89,7 @@ export default function OpenAccessPage() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <ChartContainer ref={pieRef} title="Distribuição OA" actions={<ChartExportButton chartRef={pieRef} fileName="oa-distribuicao" />}>
-          <PieChart data={oaData} innerRadius={60} />
+          <PieChart data={oaData} innerRadius={60} onSliceClick={(e) => handleDrill(e.name)} />
         </ChartContainer>
         <ChartContainer ref={trendRef} title="Tendência OA por Ano" actions={<ChartExportButton chartRef={trendRef} fileName="oa-trend" />}>
           <BarChart data={oaTrend} xKey="year" bars={[{ key: "open", label: "Open Access", stackId: "a" }, { key: "closed", label: "Fechado", stackId: "a", color: "#94a3b8" }]} showLegend />
@@ -108,9 +111,11 @@ export default function OpenAccessPage() {
       <Card>
         <CardHeader><CardTitle className="text-base">Detalhamento por Status</CardTitle></CardHeader>
         <CardContent>
-          <DataTable columns={columns} data={tableData} />
+          <DataTable columns={columns} data={tableData} onRowClick={(row) => handleDrill(row.status)} />
         </CardContent>
       </Card>
+
+      <ArticleDrillDown {...drillDownProps} />
     </div>
   );
 }

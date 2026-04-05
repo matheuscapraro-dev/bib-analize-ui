@@ -21,6 +21,7 @@ interface PieChartProps {
   height?: number;
   showLegend?: boolean;
   innerRadius?: number;
+  onSliceClick?: (entry: { name: string; value: number }) => void;
 }
 
 const RADIAN = Math.PI / 180;
@@ -54,7 +55,7 @@ function renderLabel(props: PieLabelRenderProps) {
   );
 }
 
-export function PieChart({ data, height = 350, showLegend = true, innerRadius = 0 }: PieChartProps) {
+export function PieChart({ data, height = 350, showLegend = true, innerRadius = 0, onSliceClick }: PieChartProps) {
   return (
     <ResponsiveContainer width="100%" height={height}>
       <RechartsPieChart>
@@ -71,8 +72,13 @@ export function PieChart({ data, height = 350, showLegend = true, innerRadius = 
           labelLine={{ stroke: "var(--muted-foreground)", strokeWidth: 1 }}
           style={{ fontSize: 11 }}
         >
-          {data.map((_, i) => (
-            <Cell key={i} fill={paletteColor(i)} />
+          {data.map((entry, i) => (
+            <Cell
+              key={i}
+              fill={paletteColor(i)}
+              onClick={onSliceClick ? () => onSliceClick(entry) : undefined}
+              style={onSliceClick ? { cursor: "pointer" } : undefined}
+            />
           ))}
         </Pie>
         <Tooltip

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { useBib } from "@/store/bibliometric-context";
 import { PageHeader } from "@/components/page-header";
 import { PieChart } from "@/components/charts/pie-chart";
@@ -8,6 +8,8 @@ import { Treemap } from "@/components/charts/treemap";
 import { ChartContainer } from "@/components/charts/chart-container";
 import { useChartRef, ChartExportButton } from "@/components/chart-export-button";
 import { countValues, topN } from "@/lib/data-processing";
+import { ArticleDrillDown } from "@/components/article-drill-down";
+import { useArticleDrillDown } from "@/hooks/use-drill-down";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "@/components/data-table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -25,6 +27,7 @@ export default function TiposDocumentoPage() {
   const { filtered } = useBib();
   const pieRef = useChartRef();
   const treeRef = useChartRef();
+  const { handleDrill, drillDownProps } = useArticleDrillDown(filtered, "DT");
 
   const typeCounts = useMemo(() => countValues(filtered, "DT"), [filtered]);
   const top = useMemo(() => topN(typeCounts, 20), [typeCounts]);
@@ -46,23 +49,25 @@ export default function TiposDocumentoPage() {
         </TabsList>
         <TabsContent value="pie">
           <ChartContainer ref={pieRef} title="Tipos de Documento" actions={<ChartExportButton chartRef={pieRef} fileName="tipos-doc-pie" />}>
-            <PieChart data={pieData} innerRadius={60} />
+            <PieChart data={pieData} innerRadius={60} onSliceClick={(e) => handleDrill(e.name)} />
           </ChartContainer>
         </TabsContent>
         <TabsContent value="treemap">
           <ChartContainer ref={treeRef} title="Treemap de Tipos" actions={<ChartExportButton chartRef={treeRef} fileName="tipos-doc-treemap" />}>
-            <Treemap data={treeData} />
+            <Treemap data={treeData} onCellClick={(e) => handleDrill(e.name)} />
           </ChartContainer>
         </TabsContent>
         <TabsContent value="table">
           <Card>
             <CardHeader><CardTitle className="text-base">Todos os Tipos</CardTitle></CardHeader>
             <CardContent>
-              <DataTable columns={columns} data={tableData} />
+              <DataTable columns={columns} data={tableData} onRowClick={(row) => handleDrill(row.type)} />
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
+
+      <ArticleDrillDown {...drillDownProps} />
     </div>
   );
 }

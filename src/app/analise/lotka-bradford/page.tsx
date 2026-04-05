@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useRef, useMemo, useCallback } from "react";
 import { useBib } from "@/store/bibliometric-context";
 import { PageHeader } from "@/components/page-header";
 import { LineChart } from "@/components/charts/line-chart";
@@ -12,7 +12,10 @@ import { lotkaLaw, bradfordLaw } from "@/lib/data-processing";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { DataTable } from "@/components/data-table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ArticleDrillDown } from "@/components/article-drill-down";
+import { useArticleDrillDown } from "@/hooks/use-drill-down";
 import type { ColumnDef } from "@tanstack/react-table";
+import type { BibWork } from "@/types/bibliometric";
 
 interface BradfordRow { zone: number; sources: number; articles: number; }
 
@@ -29,6 +32,41 @@ export default function LotkaBradfordPage() {
 
   const lotka = useMemo(() => lotkaLaw(filtered), [filtered]);
   const bradford = useMemo(() => bradfordLaw(filtered), [filtered]);
+
+  const filterModeRef = useRef<"lotka" | "bradford">("lotka");
+  const { handleDrill, drillDownProps } = useArticleDrillDown(filtered, (data: BibWork[], value: string) => {
+    if (filterModeRef.current === "lotka") {
+      const numDocs = Number(value);
+      const authorCounts = new Map<string, number>();
+      for (const w of data) {
+        for (const a of (w.AU ?? "").split("; ").filter(Boolean)) {
+          const t = a.trim();
+          authorCounts.set(t, (authorCounts.get(t) ?? 0) + 1);
+        }
+      }
+      const target = new Set([...authorCounts.entries()].filter(([, c]) => c === numDocs).map(([a]) => a));
+      return data.filter(w => (w.AU ?? "").split("; ").some(a => target.has(a.trim())));
+    }
+    // bradford
+    const zoneNum = parseInt(value.replace(/\D/g, ""), 10) - 1;
+    const counts = new Map<string, number>();
+    for (const w of data) { const s = (w.SO ?? "").trim(); if (s) counts.set(s, (counts.get(s) ?? 0) + 1); }
+    const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+    const total = sorted.reduce((s, [, c]) => s + c, 0);
+    const third = total / 3;
+    let accum = 0;
+    const zoneMap = new Map<string, number>();
+    for (const [source, articles] of sorted) { accum += articles; zoneMap.set(source, accum <= third ? 0 : accum <= 2 * third ? 1 : 2); }
+    return data.filter(w => zoneMap.get((w.SO ?? "").trim()) === zoneNum);
+  });
+  const lotkaHandler = useCallback((entry: Record<string, unknown>) => {
+    filterModeRef.current = "lotka";
+    handleDrill(String(entry.docs));
+  }, [handleDrill]);
+  const bradfordHandler = useCallback((name: string) => {
+    filterModeRef.current = "bradford";
+    handleDrill(name);
+  }, [handleDrill]);
 
   const lotkaChart = useMemo(() =>
     lotka.observed.map((o, i) => ({
@@ -79,6 +117,7 @@ export default function LotkaBradfordPage() {
                     { key: "esperado", label: "Esperado (Lotka)", dashed: true },
                   ]}
                   showLegend
+                  onDotClick={lotkaHandler}
                 />
               </ChartContainer>
             </CardContent>
@@ -103,13 +142,16 @@ export default function LotkaBradfordPage() {
                     { key: "artigos", label: "Artigos" },
                   ]}
                   showLegend
+                  onBarClick={(e) => bradfordHandler(String(e.zone))}
                 />
               </ChartContainer>
-              <DataTable columns={bradfordCols} data={bradfordTable} />
+              <DataTable columns={bradfordCols} data={bradfordTable} onRowClick={(row) => bradfordHandler(`Zona ${row.zone}`)} />
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
+
+      <ArticleDrillDown {...drillDownProps} />
     </div>
   );
 }

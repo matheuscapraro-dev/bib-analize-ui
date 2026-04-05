@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useBib } from "@/store/bibliometric-context";
 import { PageHeader } from "@/components/page-header";
 import { BarChart } from "@/components/charts/bar-chart";
@@ -14,6 +14,8 @@ import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DollarSign, TrendingUp, BarChart3 } from "lucide-react";
+import { ArticleDrillDown } from "@/components/article-drill-down";
+import { useArticleDrillDown } from "@/hooks/use-drill-down";
 import type { ColumnDef } from "@tanstack/react-table";
 
 interface AgencyRow { agency: string; count: number; pct: string; }
@@ -38,6 +40,13 @@ export default function FinanciamentoPage() {
   const trendRef = useChartRef();
   const impactRef = useChartRef();
   const [topN, setTopN] = useState(20);
+  const { handleDrill, drillDownProps } = useArticleDrillDown(filtered, (data, agency) => {
+    const needle = agency.toLowerCase().trim();
+    return data.filter((w) => {
+      const fu = w.FU ?? "";
+      return fu.split(";").some((a) => a.trim().toLowerCase() === needle);
+    });
+  });
 
   const { funded, notFunded, pctFunded, avgCitFunded, avgCitNotFunded } = useMemo(() => {
     let fundedCount = 0;
@@ -196,7 +205,7 @@ export default function FinanciamentoPage() {
             title={`Top ${topN} Agências Financiadoras`}
             actions={<ChartExportButton chartRef={agencyRef} fileName="funding-agencies" />}
           >
-            <BarChart data={agencyChart} xKey="name" bars={[{ key: "Artigos", label: "Artigos" }]} height={Math.max(400, topN * 28)} layout="vertical" />
+            <BarChart data={agencyChart} xKey="name" bars={[{ key: "Artigos", label: "Artigos" }]} height={Math.max(400, topN * 28)} layout="vertical" onBarClick={(e) => handleDrill(String(e.name))} />
           </ChartContainer>
         </TabsContent>
 
@@ -228,9 +237,11 @@ export default function FinanciamentoPage() {
         </TabsContent>
 
         <TabsContent value="table">
-          <DataTable columns={agencyCols} data={agencyTable} pageSize={20} />
+          <DataTable columns={agencyCols} data={agencyTable} pageSize={20} onRowClick={(row) => handleDrill(row.agency)} />
         </TabsContent>
       </Tabs>
+
+      <ArticleDrillDown {...drillDownProps} />
     </div>
   );
 }

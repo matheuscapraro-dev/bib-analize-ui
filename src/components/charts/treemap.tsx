@@ -1,15 +1,16 @@
 "use client";
 
+import { useRef, useState, useCallback, useEffect } from "react";
 import {
   ResponsiveContainer,
   Treemap as RechartsTreemap,
-  Tooltip,
 } from "recharts";
 import { paletteColor, TOOLTIP_STYLE } from "@/lib/chart-config";
 
 interface TreemapProps {
   data: { name: string; value: number; children?: { name: string; value: number }[] }[];
   height?: number;
+  onCellClick?: (entry: { name: string; value: number }) => void;
 }
 
 interface CustomContentProps {
@@ -18,14 +19,22 @@ interface CustomContentProps {
   width: number;
   height: number;
   name: string;
+  value: number;
   index: number;
   depth: number;
+  onCellClick?: (entry: { name: string; value: number }) => void;
+  onHover?: (entry: { name: string; value: number; x: number; y: number } | null) => void;
 }
 
-function CustomizedContent({ x, y, width, height: h, name, index, depth }: CustomContentProps) {
+function CustomizedContent({ x, y, width, height: h, name, value, index, depth, onCellClick, onHover }: CustomContentProps) {
   if (width < 30 || h < 20) return null;
   return (
-    <g>
+    <g
+      onClick={onCellClick ? () => onCellClick({ name, value }) : undefined}
+      onMouseEnter={() => onHover?.({ name, value, x: x + width / 2, y })}
+      onMouseLeave={() => onHover?.(null)}
+      style={onCellClick ? { cursor: "pointer" } : undefined}
+    >
       <rect
         x={x}
         y={y}
@@ -50,18 +59,72 @@ function CustomizedContent({ x, y, width, height: h, name, index, depth }: Custo
   );
 }
 
-export function Treemap({ data, height = 350 }: TreemapProps) {
+export function Treemap({ data, height = 350, onCellClick }: TreemapProps) {
+  const [hovered, setHovered] = useState<{ name: string; value: number; x: number; y: number } | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
+  const [tooltipPos, setTooltipPos] = useState<{ left: number; top: number } | null>(null);
+
+  useEffect(() => {
+    if (!hovered || !containerRef.current || !tooltipRef.current) {
+      setTooltipPos(null);
+      return;
+    }
+    const container = containerRef.current.getBoundingClientRect();
+    const tip = tooltipRef.current.getBoundingClientRect();
+    const margin = 8;
+
+    let left = hovered.x - tip.width / 2;
+    let top = hovered.y - tip.height - margin;
+
+    // Clamp horizontal
+    if (left < margin) left = margin;
+    if (left + tip.width > container.width - margin) left = container.width - tip.width - margin;
+
+    // If above the top, flip below
+    if (top < margin) top = hovered.y + margin;
+
+    setTooltipPos({ left, top });
+  }, [hovered]);
+
   return (
-    <ResponsiveContainer width="100%" height={height}>
-      <RechartsTreemap
-        data={data}
-        dataKey="value"
-        aspectRatio={4 / 3}
-        stroke="#fff"
-        content={<CustomizedContent x={0} y={0} width={0} height={0} name="" index={0} depth={0} />}
-      >
-        <Tooltip contentStyle={TOOLTIP_STYLE} />
-      </RechartsTreemap>
-    </ResponsiveContainer>
+    <div ref={containerRef} style={{ position: "relative", width: "100%", height, overflow: "hidden" }}>
+      <ResponsiveContainer width="100%" height={height}>
+        <RechartsTreemap
+          data={data}
+          dataKey="value"
+          aspectRatio={4 / 3}
+          stroke="#fff"
+          content={
+            <CustomizedContent
+              x={0} y={0} width={0} height={0} name="" value={0} index={0} depth={0}
+              onCellClick={onCellClick}
+              onHover={setHovered}
+            />
+          }
+        />
+      </ResponsiveContainer>
+      {hovered && (
+        <div
+          ref={tooltipRef}
+          style={{
+            ...TOOLTIP_STYLE,
+            position: "absolute",
+            left: tooltipPos ? tooltipPos.left : hovered.x,
+            top: tooltipPos ? tooltipPos.top : hovered.y - 8,
+            transform: tooltipPos ? undefined : "translate(-50%, -100%)",
+            pointerEvents: "none",
+            zIndex: 10,
+            padding: "6px 10px",
+            whiteSpace: "nowrap",
+            visibility: tooltipPos ? "visible" : "hidden",
+          }}
+        >
+          <span style={{ fontWeight: 600 }}>{hovered.name}</span>
+          {" : "}
+          <span>{hovered.value.toLocaleString()}</span>
+        </div>
+      )}
+    </div>
   );
 }

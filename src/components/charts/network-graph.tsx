@@ -8,6 +8,7 @@ interface NetworkGraphProps {
   data: NetworkData;
   height?: number;
   width?: number;
+  onNodeClick?: (node: { id: string; label: string }) => void;
 }
 
 interface SimNode {
@@ -21,7 +22,7 @@ interface SimNode {
   vy: number;
 }
 
-export function NetworkGraph({ data, height = 500, width: propWidth }: NetworkGraphProps) {
+export function NetworkGraph({ data, height = 500, width: propWidth, onNodeClick }: NetworkGraphProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const nodesRef = useRef<SimNode[]>([]);
@@ -189,15 +190,32 @@ export function NetworkGraph({ data, height = 500, width: propWidth }: NetworkGr
     if (!rect) return;
     const mx = e.clientX - rect.left, my = e.clientY - rect.top;
     const simNodes = nodesRef.current;
+    let found = false;
     for (const n of simNodes) {
       const dx = n.x - mx, dy = n.y - my;
       if (dx * dx + dy * dy < (n.size + 4) * (n.size + 4)) {
         setTooltip({ x: mx + 12, y: my - 12, text: `${n.label} (${Math.round(n.size)})` });
+        found = true;
+        break;
+      }
+    }
+    if (!found) setTooltip(null);
+  }, []);
+
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    if (!onNodeClick) return;
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    const simNodes = nodesRef.current;
+    for (const n of simNodes) {
+      const dx = n.x - mx, dy = n.y - my;
+      if (dx * dx + dy * dy < (n.size + 4) * (n.size + 4)) {
+        onNodeClick({ id: n.id, label: n.label });
         return;
       }
     }
-    setTooltip(null);
-  }, []);
+  }, [onNodeClick]);
 
   return (
     <div ref={containerRef} className="relative w-full" style={{ height }}>
@@ -209,7 +227,14 @@ export function NetworkGraph({ data, height = 500, width: propWidth }: NetworkGr
           </div>
         </div>
       )}
-      <canvas ref={canvasRef} onMouseMove={handleMouseMove} onMouseLeave={() => setTooltip(null)} className="w-full h-full" />
+      <canvas
+        ref={canvasRef}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={() => setTooltip(null)}
+        onClick={handleClick}
+        className="w-full h-full"
+        style={onNodeClick ? { cursor: "pointer" } : undefined}
+      />
       {tooltip && (
         <div
           className="absolute pointer-events-none bg-popover text-popover-foreground border rounded-md px-2 py-1 text-xs shadow-md z-10"

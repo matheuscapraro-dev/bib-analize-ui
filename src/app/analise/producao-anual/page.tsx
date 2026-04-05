@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { useBib } from "@/store/bibliometric-context";
 import { PageHeader } from "@/components/page-header";
 import { BarChart } from "@/components/charts/bar-chart";
@@ -8,6 +8,8 @@ import { LineChart } from "@/components/charts/line-chart";
 import { ChartContainer } from "@/components/charts/chart-container";
 import { useChartRef, ChartExportButton } from "@/components/chart-export-button";
 import { yearlyStats } from "@/lib/data-processing";
+import { ArticleDrillDown } from "@/components/article-drill-down";
+import { useArticleDrillDown } from "@/hooks/use-drill-down";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "@/components/data-table";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -25,6 +27,9 @@ export default function ProducaoAnualPage() {
   const { filtered } = useBib();
   const barRef = useChartRef();
   const lineRef = useChartRef();
+  const { handleDrill, drillDownProps } = useArticleDrillDown(filtered, (data, value) =>
+    data.filter((w) => w.PY === Number(value))
+  );
 
   const ys = useMemo(() => yearlyStats(filtered), [filtered]);
   const chartData = useMemo(() => ys.map((y) => ({
@@ -71,7 +76,7 @@ export default function ProducaoAnualPage() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <ChartContainer ref={barRef} title="Documentos por Ano" actions={<ChartExportButton chartRef={barRef} fileName="docs-por-ano" />}>
-          <BarChart data={chartData} xKey="ano" bars={[{ key: "documentos", label: "Documentos" }]} />
+          <BarChart data={chartData} xKey="ano" bars={[{ key: "documentos", label: "Documentos" }]} onBarClick={(e) => handleDrill(String(e.ano))} />
         </ChartContainer>
 
         <ChartContainer ref={lineRef} title="Produção Acumulada" actions={<ChartExportButton chartRef={lineRef} fileName="producao-acumulada" />}>
@@ -84,9 +89,11 @@ export default function ProducaoAnualPage() {
           <CardTitle className="text-base">Dados por Ano</CardTitle>
         </CardHeader>
         <CardContent>
-          <DataTable columns={columns} data={ys} pageSize={20} />
+          <DataTable columns={columns} data={ys} pageSize={20} onRowClick={(row) => handleDrill(String(row.year))} />
         </CardContent>
       </Card>
+
+      <ArticleDrillDown {...drillDownProps} />
     </div>
   );
 }
