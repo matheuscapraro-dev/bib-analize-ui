@@ -2,7 +2,10 @@ import type { BibWork } from "@/types/bibliometric";
 import { LANG_MAP, OA_STATUS_MAP } from "./constants";
 import { hasBooleanOperators, booleanPostFilter } from "./boolean-filter";
 
-const OPENALEX_BASE = "https://api.openalex.org";
+const OPENALEX_DIRECT = "https://api.openalex.org";
+/** In the browser, route through our Next.js proxy so the API key stays server-side. */
+const OPENALEX_BASE =
+  typeof window !== "undefined" ? "/api/openalex" : OPENALEX_DIRECT;
 const PER_PAGE = 100;
 const CONTACT_EMAIL = "bibliometrics@analysis.app";
 

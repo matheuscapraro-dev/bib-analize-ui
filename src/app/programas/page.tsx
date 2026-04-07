@@ -86,7 +86,7 @@ export default function ProgramasPage() {
     instDebounceRef.current = setTimeout(async () => {
       setInstLoading(true);
       try {
-        const results = await searchInstitutions(instQuery, { apiKey: process.env.NEXT_PUBLIC_OPENALEX_API_KEY ?? "" });
+        const results = await searchInstitutions(instQuery);
         setInstResults(results);
         setShowInstDropdown(true);
       } catch {
@@ -181,7 +181,7 @@ export default function ProgramasPage() {
             yearEnd,
             maxRecords: 2000,
             sort: "cited_by_count:desc",
-            apiKey: process.env.NEXT_PUBLIC_OPENALEX_API_KEY ?? "",
+
           };
           works = (await fetchOpenAlexWorks(oaParams, (fetched, total) => {
             setProgress(`${prog.name}: ${fetched}/${total} registros...`);
