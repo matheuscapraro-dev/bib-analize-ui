@@ -51,30 +51,42 @@ function parseResponse(data: Record<string, unknown>, issn: string): JournalMetr
       : null;
 
     // Subject area and percentile
-    // The subject-area array contains category info with percentile rankings
-    const subjectAreas = entry["subject-area"] as Record<string, unknown>[] | undefined;
+    // Percentile lives inside citeScoreYearInfo (status=Complete) →
+    //   citeScoreInformationList[0] → citeScoreInfo[0] → citeScoreSubjectRank[]
+    // Each rank entry has { subjectCode, rank, percentile }.
+    // We pick the highest percentile across all subject areas.
     let highestPercentile: number | null = null;
     let subjectArea = "";
 
+    // Build a subject-code → name map from the top-level subject-area list
+    const subjectAreas = entry["subject-area"] as Record<string, unknown>[] | undefined;
+    const subjectNameMap = new Map<string, string>();
     if (subjectAreas?.length) {
-      // Find the subject area with the highest percentile
       for (const sa of subjectAreas) {
-        const pctStr = String(sa["percentile"] ?? sa["@percentile"] ?? "");
-        const pct = parseFloat(pctStr);
-        if (!isNaN(pct) && (highestPercentile === null || pct > highestPercentile)) {
-          highestPercentile = pct;
-          subjectArea = String(sa["$"] ?? sa["@abbrev"] ?? "");
-        }
+        const code = String(sa["@code"] ?? "");
+        const name = String(sa["$"] ?? sa["@abbrev"] ?? "");
+        if (code && name) subjectNameMap.set(code, name);
       }
     }
 
-    // Fallback: try citeScoreYearInfo for percentile
-    if (highestPercentile === null && csYearInfo) {
+    if (csYearInfo) {
       const yearInfos = csYearInfo["citeScoreYearInfo"] as Record<string, unknown>[] | undefined;
       if (yearInfos?.length) {
-        const latest = yearInfos[yearInfos.length - 1];
-        const pct = parseFloat(String(latest["citeScorePercentile"] ?? ""));
-        if (!isNaN(pct)) highestPercentile = pct;
+        // Prefer the latest "Complete" year; fall back to the last entry
+        const completeYear = yearInfos.filter((y) => y["@status"] === "Complete").pop() ?? yearInfos[yearInfos.length - 1];
+        const infoList = (completeYear["citeScoreInformationList"] as Record<string, unknown>[] | undefined) ?? [];
+        const csInfo = ((infoList[0]?.["citeScoreInfo"]) as Record<string, unknown>[] | undefined) ?? [];
+        for (const info of csInfo) {
+          const ranks = (info["citeScoreSubjectRank"] as Record<string, unknown>[] | undefined) ?? [];
+          for (const r of ranks) {
+            const pct = parseFloat(String(r["percentile"] ?? ""));
+            if (!isNaN(pct) && (highestPercentile === null || pct > highestPercentile)) {
+              highestPercentile = pct;
+              const code = String(r["subjectCode"] ?? "");
+              subjectArea = subjectNameMap.get(code) ?? code;
+            }
+          }
+        }
       }
     }
 

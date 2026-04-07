@@ -526,6 +526,11 @@ export interface OpenAlexInstitution {
   works_count: number;
 }
 
+export interface AffiliationSuggestion {
+  text: string;
+  count: number;
+}
+
 /** Search the OpenAlex /autocomplete/institutions endpoint. */
 export async function searchInstitutions(
   query: string,
@@ -556,6 +561,63 @@ export async function searchInstitutions(
     type: String(i.type ?? ""),
     works_count: Number(i.works_count ?? 0),
   }));
+  cacheSet(cacheKey, results);
+  return results;
+}
+
+/* ── Affiliation autocomplete within an institution ──────── */
+
+/**
+ * Search works at a given institution matching a raw affiliation query,
+ * then extract and rank unique raw affiliation strings from the results.
+ */
+export async function searchAffiliations(
+  institutionId: string,
+  query: string,
+  params?: Pick<OpenAlexSearchParams, "email" | "apiKey">,
+): Promise<AffiliationSuggestion[]> {
+  if (!query.trim() || query.length < 2 || !institutionId) return [];
+
+  const instIdClean = institutionId.replace("https://openalex.org/", "");
+  const cacheKey = `aff:${instIdClean}:${query.trim().toLowerCase()}`;
+  const cached = cacheGet<AffiliationSuggestion[]>(cacheKey);
+  if (cached) return cached;
+
+  const urlParams = new URLSearchParams();
+  urlParams.set("filter", `institutions.id:${instIdClean},raw_affiliation_strings.search:${query}`);
+  urlParams.set("per_page", "50");
+  urlParams.set("select", "authorships");
+  if (params?.apiKey) {
+    urlParams.set("api_key", params.apiKey);
+  } else {
+    urlParams.set("mailto", params?.email || CONTACT_EMAIL);
+  }
+
+  const resp = await fetch(`${OPENALEX_BASE}/works?${urlParams}`);
+  if (!resp.ok) return [];
+  const data = await resp.json();
+
+  // Extract raw affiliation strings that match the query
+  const affCounts = new Map<string, number>();
+  const queryLower = query.toLowerCase();
+
+  for (const work of (data.results ?? []) as Record<string, unknown>[]) {
+    const authorships = (work.authorships ?? []) as Record<string, unknown>[];
+    for (const a of authorships) {
+      const rawAffs = (a.raw_affiliation_strings ?? []) as string[];
+      for (const aff of rawAffs) {
+        if (!aff || !aff.toLowerCase().includes(queryLower)) continue;
+        const normalized = aff.trim().replace(/\s+/g, " ");
+        affCounts.set(normalized, (affCounts.get(normalized) ?? 0) + 1);
+      }
+    }
+  }
+
+  const results = [...affCounts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 15)
+    .map(([text, count]) => ({ text, count }));
+
   cacheSet(cacheKey, results);
   return results;
 }
