@@ -6,12 +6,10 @@ import { toast } from "sonner";
 import {
   fetchOpenAlexWorks,
   searchInstitutions,
-  searchAffiliations,
   type OpenAlexInstitution,
-  type AffiliationSuggestion,
   type OpenAlexSearchParams,
 } from "@/lib/openalex-api";
-import { fetchWosWorks, buildWosQuery, type WosSearchParams } from "@/lib/wos-api";
+import { fetchWosWorks, type WosSearchParams } from "@/lib/wos-api";
 import { enrichJournalMetrics } from "@/lib/scopus-enrich";
 import type { BibWork } from "@/types/bibliometric";
 import { Button } from "@/components/ui/button";
@@ -19,7 +17,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import {
   Award,
@@ -41,28 +39,12 @@ interface ProgramEntry {
   id: string;
   name: string;
   affiliationSearch: string;
-  query: string;
-  confirmed: boolean;
 }
 
 const MAX_PROGRAMS = 4;
 
 function generateId() {
   return `prog-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-}
-
-/** Try to extract a short program name from a raw affiliation string. */
-function extractProgramName(affiliation: string): string {
-  // Match common patterns like "Programa de Pós-Graduação em X" or "PPG..."
-  const m =
-    affiliation.match(/(?:Programa\s+de\s+Pós[- ]?Graduação\s+em\s+)([^,;]+)/i) ??
-    affiliation.match(/(?:Program(?:me)?\s+(?:in|of)\s+)([^,;]+)/i) ??
-    affiliation.match(/(PPG\w+)/i) ??
-    affiliation.match(/(PPGCA|PPGEB|PPGSE|PPGCC|PPGEE|PPGEM|PPGME)/i);
-  if (m) return m[1].trim();
-  // Fallback: first segment up to comma, max ~60 chars
-  const firstPart = affiliation.split(/[,;]/)[0].trim();
-  return firstPart.length > 60 ? firstPart.slice(0, 57) + "..." : firstPart;
 }
 
 export default function ProgramasPage() {
@@ -82,16 +64,9 @@ export default function ProgramasPage() {
 
   // Programs
   const [programs, setPrograms] = useState<ProgramEntry[]>([
-    { id: generateId(), name: "", affiliationSearch: "", query: "", confirmed: false },
-    { id: generateId(), name: "", affiliationSearch: "", query: "", confirmed: false },
+    { id: generateId(), name: "", affiliationSearch: "" },
+    { id: generateId(), name: "", affiliationSearch: "" },
   ]);
-
-  // Per-program affiliation autocomplete
-  const [affResults, setAffResults] = useState<Record<string, AffiliationSuggestion[]>>({});
-  const [affLoading, setAffLoading] = useState<Record<string, boolean>>({});
-  const [showAffDropdown, setShowAffDropdown] = useState<Record<string, boolean>>({});
-  const affDebounceRefs = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
-  const affRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // Search config
   const [yearStart, setYearStart] = useState(2020);
@@ -125,17 +100,11 @@ export default function ProgramasPage() {
     };
   }, [instQuery]);
 
-  // Close institution dropdown on click outside
+  // Close dropdown on click outside
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (instRef.current && !instRef.current.contains(e.target as Node)) {
         setShowInstDropdown(false);
-      }
-      // Close any open affiliation dropdown
-      for (const [progId, ref] of Object.entries(affRefs.current)) {
-        if (ref && !ref.contains(e.target as Node)) {
-          setShowAffDropdown((prev) => ({ ...prev, [progId]: false }));
-        }
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -148,66 +117,18 @@ export default function ProgramasPage() {
     setShowInstDropdown(false);
   };
 
-  // ── Program affiliation autocomplete ──
-  const handleProgramQueryChange = (progId: string, value: string) => {
-    setPrograms((prev) =>
-      prev.map((p) =>
-        p.id === progId ? { ...p, query: value, confirmed: false, affiliationSearch: "", name: "" } : p,
-      ),
-    );
-
-    // Debounced search
-    if (affDebounceRefs.current[progId]) clearTimeout(affDebounceRefs.current[progId]);
-    if (!value.trim() || value.length < 2 || !selectedInst) {
-      setAffResults((prev) => ({ ...prev, [progId]: [] }));
-      return;
-    }
-
-    affDebounceRefs.current[progId] = setTimeout(async () => {
-      setAffLoading((prev) => ({ ...prev, [progId]: true }));
-      try {
-        const results = await searchAffiliations(selectedInst.id, value, { apiKey: process.env.NEXT_PUBLIC_OPENALEX_API_KEY ?? "" });
-        setAffResults((prev) => ({ ...prev, [progId]: results }));
-        setShowAffDropdown((prev) => ({ ...prev, [progId]: true }));
-      } catch {
-        setAffResults((prev) => ({ ...prev, [progId]: [] }));
-      } finally {
-        setAffLoading((prev) => ({ ...prev, [progId]: false }));
-      }
-    }, 400);
-  };
-
-  const selectAffiliation = (progId: string, suggestion: AffiliationSuggestion) => {
-    const name = extractProgramName(suggestion.text);
-    setPrograms((prev) =>
-      prev.map((p) =>
-        p.id === progId
-          ? { ...p, query: suggestion.text, affiliationSearch: suggestion.text, name, confirmed: true }
-          : p,
-      ),
-    );
-    setShowAffDropdown((prev) => ({ ...prev, [progId]: false }));
-  };
-
-  const clearProgram = (progId: string) => {
-    setPrograms((prev) =>
-      prev.map((p) =>
-        p.id === progId ? { ...p, query: "", affiliationSearch: "", name: "", confirmed: false } : p,
-      ),
-    );
-  };
-
   const addProgram = () => {
     if (programs.length >= MAX_PROGRAMS) return;
-    setPrograms((prev) => [
-      ...prev,
-      { id: generateId(), name: "", affiliationSearch: "", query: "", confirmed: false },
-    ]);
+    setPrograms((prev) => [...prev, { id: generateId(), name: "", affiliationSearch: "" }]);
   };
 
   const removeProgram = (id: string) => {
     if (programs.length <= 2) return;
     setPrograms((prev) => prev.filter((p) => p.id !== id));
+  };
+
+  const updateProgram = (id: string, field: keyof Omit<ProgramEntry, "id">, value: string) => {
+    setPrograms((prev) => prev.map((p) => (p.id === id ? { ...p, [field]: value } : p)));
   };
 
   const handleSearch = useCallback(async () => {
@@ -216,9 +137,9 @@ export default function ProgramasPage() {
       return;
     }
 
-    const validPrograms = programs.filter((p) => p.confirmed && p.affiliationSearch.trim());
+    const validPrograms = programs.filter((p) => p.name.trim() && p.affiliationSearch.trim());
     if (validPrograms.length < 2) {
-      toast.warning("Selecione pelo menos 2 programas a partir das sugestões.");
+      toast.warning("Defina pelo menos 2 programas com nome e texto de afiliação.");
       return;
     }
 
@@ -241,7 +162,6 @@ export default function ProgramasPage() {
         let works: BibWork[];
 
         if (dataSource === "wos") {
-          // WoS: use OG= (organization) + TS= (affiliation text) + year range
           const wosParams: WosSearchParams = {
             organization: selectedInst.display_name,
             topic: prog.affiliationSearch,
@@ -254,7 +174,6 @@ export default function ProgramasPage() {
             setProgress(`${prog.name}: ${fetched}/${total} registros...`);
           })) as BibWork[];
         } else {
-          // OpenAlex
           const oaParams: OpenAlexSearchParams = {
             institutionId: selectedInst.id,
             rawAffiliation: prog.affiliationSearch,
@@ -490,11 +409,10 @@ export default function ProgramasPage() {
                 Programas ({programs.length}/{MAX_PROGRAMS})
               </CardTitle>
               <CardDescription>
-                {selectedInst
-                  ? dataSource === "openalex"
-                    ? "Digite o nome do programa e selecione a afiliação sugerida pelo OpenAlex."
-                    : "Digite o nome do programa e selecione a afiliação. A busca no WoS usará o texto como filtro de tópico (TS)."
-                  : "Selecione uma instituição acima para buscar programas."}
+                Defina os programas a comparar. O texto de afiliação é usado para filtrar obras
+                {dataSource === "openalex"
+                  ? " no OpenAlex (campo raw_affiliation_strings)."
+                  : " no Web of Science (campo TS)."}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -515,84 +433,32 @@ export default function ProgramasPage() {
                       </Button>
                     )}
                   </div>
-
-                  <div
-                    ref={(el) => { affRefs.current[prog.id] = el; }}
-                    className="relative"
-                  >
-                    <div className="flex items-center gap-2">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label>Nome do programa</Label>
                       <Input
-                        placeholder={
-                          selectedInst
-                            ? "Digite ex: Computação, Engenharia, Matemática..."
-                            : "Selecione uma instituição primeiro"
-                        }
-                        value={prog.query}
-                        onChange={(e) => handleProgramQueryChange(prog.id, e.target.value)}
-                        disabled={!selectedInst}
-                        className="flex-1"
+                        placeholder="ex: PPGCA, PPGEB, PPGSE..."
+                        value={prog.name}
+                        onChange={(e) => updateProgram(prog.id, "name", e.target.value)}
                       />
-                      {affLoading[prog.id] && (
-                        <Loader2 className="size-4 animate-spin text-muted-foreground" />
-                      )}
-                      {prog.confirmed && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="size-8"
-                          onClick={() => clearProgram(prog.id)}
-                        >
-                          <X className="size-4" />
-                        </Button>
-                      )}
                     </div>
-
-                    {showAffDropdown[prog.id] && (affResults[prog.id]?.length ?? 0) > 0 && (
-                      <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-lg max-h-48 overflow-auto">
-                        {affResults[prog.id].map((sug, i) => (
-                          <button
-                            key={i}
-                            type="button"
-                            className="w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors"
-                            onClick={() => selectAffiliation(prog.id, sug)}
-                          >
-                            <div className="line-clamp-2">{sug.text}</div>
-                            <div className="text-xs text-muted-foreground mt-0.5">
-                              {sug.count} ocorrência{sug.count !== 1 ? "s" : ""}
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    )}
+                    <div className="space-y-1.5">
+                      <Label>Texto de afiliação</Label>
+                      <Input
+                        placeholder="ex: Computação Aplicada, Engenharia Biomédica..."
+                        value={prog.affiliationSearch}
+                        onChange={(e) => updateProgram(prog.id, "affiliationSearch", e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Trecho que aparece na afiliação dos autores.
+                      </p>
+                    </div>
                   </div>
-
-                  {prog.confirmed && (
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="secondary" className="gap-1">
-                          <GraduationCap className="size-3" />
-                          {prog.name}
-                        </Badge>
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs text-muted-foreground">Nome de exibição (editável)</Label>
-                        <Input
-                          value={prog.name}
-                          onChange={(e) =>
-                            setPrograms((prev) =>
-                              prev.map((p) => (p.id === prog.id ? { ...p, name: e.target.value } : p)),
-                            )
-                          }
-                          className="h-8 text-sm"
-                        />
-                      </div>
-                    </div>
-                  )}
                 </div>
               ))}
 
               {programs.length < MAX_PROGRAMS && (
-                <Button variant="outline" className="w-full gap-2" onClick={addProgram} disabled={!selectedInst}>
+                <Button variant="outline" className="w-full gap-2" onClick={addProgram}>
                   <Plus className="size-4" />
                   Adicionar Programa
                 </Button>
@@ -606,7 +472,7 @@ export default function ProgramasPage() {
           <Button
             size="lg"
             className="w-full gap-2"
-            disabled={loading || !selectedInst || programs.filter((p) => p.confirmed).length < 2}
+            disabled={loading || !selectedInst || programs.filter((p) => p.name.trim() && p.affiliationSearch.trim()).length < 2}
             onClick={handleSearch}
           >
             {loading ? (
