@@ -11,6 +11,7 @@ import {
   type AffiliationSuggestion,
   type OpenAlexSearchParams,
 } from "@/lib/openalex-api";
+import { fetchWosWorks, buildWosQuery, type WosSearchParams } from "@/lib/wos-api";
 import { enrichJournalMetrics } from "@/lib/scopus-enrich";
 import type { BibWork } from "@/types/bibliometric";
 import { Button } from "@/components/ui/button";
@@ -18,11 +19,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import {
   Award,
   BarChart3,
+  BookOpen,
   Building2,
+  Globe,
   GraduationCap,
   Loader2,
   Plus,
@@ -30,6 +34,8 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+
+type DataSource = "openalex" | "wos";
 
 interface ProgramEntry {
   id: string;
@@ -61,6 +67,9 @@ function extractProgramName(affiliation: string): string {
 
 export default function ProgramasPage() {
   const router = useRouter();
+
+  // Data source
+  const [dataSource, setDataSource] = useState<DataSource>("openalex");
 
   // Institution autocomplete
   const [instQuery, setInstQuery] = useState("");
@@ -102,7 +111,7 @@ export default function ProgramasPage() {
     instDebounceRef.current = setTimeout(async () => {
       setInstLoading(true);
       try {
-        const results = await searchInstitutions(instQuery);
+        const results = await searchInstitutions(instQuery, { apiKey: process.env.NEXT_PUBLIC_OPENALEX_API_KEY ?? "" });
         setInstResults(results);
         setShowInstDropdown(true);
       } catch {
@@ -157,7 +166,7 @@ export default function ProgramasPage() {
     affDebounceRefs.current[progId] = setTimeout(async () => {
       setAffLoading((prev) => ({ ...prev, [progId]: true }));
       try {
-        const results = await searchAffiliations(selectedInst.id, value);
+        const results = await searchAffiliations(selectedInst.id, value, { apiKey: process.env.NEXT_PUBLIC_OPENALEX_API_KEY ?? "" });
         setAffResults((prev) => ({ ...prev, [progId]: results }));
         setShowAffDropdown((prev) => ({ ...prev, [progId]: true }));
       } catch {
@@ -229,18 +238,36 @@ export default function ProgramasPage() {
         const prog = validPrograms[i];
         setProgress(`Buscando ${prog.name} (${i + 1}/${validPrograms.length})...`);
 
-        const params: OpenAlexSearchParams = {
-          institutionId: selectedInst.id,
-          rawAffiliation: prog.affiliationSearch,
-          yearStart,
-          yearEnd,
-          maxRecords: 2000,
-          sort: "cited_by_count:desc",
-        };
+        let works: BibWork[];
 
-        const works = (await fetchOpenAlexWorks(params, (fetched, total) => {
-          setProgress(`${prog.name}: ${fetched}/${total} registros...`);
-        })) as BibWork[];
+        if (dataSource === "wos") {
+          // WoS: use OG= (organization) + TS= (affiliation text) + year range
+          const wosParams: WosSearchParams = {
+            organization: selectedInst.display_name,
+            topic: prog.affiliationSearch,
+            yearStart,
+            yearEnd,
+            maxRecords: 2000,
+            sortField: "TC+D",
+          };
+          works = (await fetchWosWorks(wosParams, (fetched, total) => {
+            setProgress(`${prog.name}: ${fetched}/${total} registros...`);
+          })) as BibWork[];
+        } else {
+          // OpenAlex
+          const oaParams: OpenAlexSearchParams = {
+            institutionId: selectedInst.id,
+            rawAffiliation: prog.affiliationSearch,
+            yearStart,
+            yearEnd,
+            maxRecords: 2000,
+            sort: "cited_by_count:desc",
+            apiKey: process.env.NEXT_PUBLIC_OPENALEX_API_KEY ?? "",
+          };
+          works = (await fetchOpenAlexWorks(oaParams, (fetched, total) => {
+            setProgress(`${prog.name}: ${fetched}/${total} registros...`);
+          })) as BibWork[];
+        }
 
         programResults.push({
           id: prog.id,
@@ -262,6 +289,7 @@ export default function ProgramasPage() {
           display_name: selectedInst.display_name,
           country_code: selectedInst.country_code,
         },
+        dataSource,
         yearStart,
         yearEnd,
         programs: programResults.map((pr) => ({
@@ -292,7 +320,7 @@ export default function ProgramasPage() {
       setLoading(false);
       setProgress(null);
     }
-  }, [selectedInst, programs, yearStart, yearEnd, router]);
+  }, [selectedInst, programs, yearStart, yearEnd, dataSource, router]);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -324,6 +352,35 @@ export default function ProgramasPage() {
         </div>
 
         <div className="space-y-6">
+          {/* Data Source Selection */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Globe className="size-4" />
+                Fonte de Dados
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Tabs value={dataSource} onValueChange={(v) => setDataSource(v as DataSource)}>
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="openalex" className="gap-2">
+                    <BookOpen className="size-4" />
+                    OpenAlex
+                  </TabsTrigger>
+                  <TabsTrigger value="wos" className="gap-2">
+                    <Globe className="size-4" />
+                    Web of Science
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+              <p className="text-xs text-muted-foreground mt-2">
+                {dataSource === "openalex"
+                  ? "OpenAlex: base aberta com >250M de trabalhos. Filtro por raw_affiliation_strings."
+                  : "Web of Science: base premium Clarivate. Filtro por organização (OG) e tópico (TS)."}
+              </p>
+            </CardContent>
+          </Card>
+
           {/* Institution Selection */}
           <Card>
             <CardHeader>
@@ -434,7 +491,9 @@ export default function ProgramasPage() {
               </CardTitle>
               <CardDescription>
                 {selectedInst
-                  ? "Digite o nome do programa e selecione a afiliação sugerida pelo OpenAlex."
+                  ? dataSource === "openalex"
+                    ? "Digite o nome do programa e selecione a afiliação sugerida pelo OpenAlex."
+                    : "Digite o nome do programa e selecione a afiliação. A busca no WoS usará o texto como filtro de tópico (TS)."
                   : "Selecione uma instituição acima para buscar programas."}
               </CardDescription>
             </CardHeader>

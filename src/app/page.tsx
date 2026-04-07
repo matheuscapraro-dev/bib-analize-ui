@@ -188,7 +188,7 @@ export default function HomePage() {
         </div>
 
         <Tabs defaultValue="upload" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="upload" className="gap-2">
               <Upload className="size-4" />
               Upload
@@ -200,6 +200,10 @@ export default function HomePage() {
             <TabsTrigger value="saved" className="gap-2">
               <Bookmark className="size-4" />
               Salvos
+            </TabsTrigger>
+            <TabsTrigger value="programas" className="gap-2">
+              <GraduationCap className="size-4" />
+              Programas
             </TabsTrigger>
           </TabsList>
 
@@ -512,9 +516,29 @@ export default function HomePage() {
                   <GitCompareArrows className="size-4" />
                   Comparar Análises Salvas
                 </Button>
-                <Button variant="outline" className="w-full gap-2" onClick={() => router.push("/programas")}>
-                  <GraduationCap className="size-4" />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Programas Tab */}
+          <TabsContent value="programas">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <GraduationCap className="size-5" />
                   Programas de Pós-Graduação
+                </CardTitle>
+                <CardDescription>
+                  Compare a produção bibliométrica e classificação Qualis de programas de pós-graduação dentro de uma instituição.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Selecione uma instituição, defina os programas a comparar e analise métricas como CiteScore, Qualis e produção ponderada.
+                </p>
+                <Button className="w-full gap-2" onClick={() => router.push("/programas")}>
+                  <GraduationCap className="size-4" />
+                  Iniciar Comparação de Programas
                 </Button>
               </CardContent>
             </Card>

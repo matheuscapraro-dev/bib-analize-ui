@@ -44,7 +44,7 @@ export interface WosSearchParams {
   database?: string;
   sortField?: string;
   maxRecords?: number;
-  apiKey: string;
+  apiKey?: string;
   rawQuery?: string;
 }
 
@@ -187,7 +187,7 @@ export function buildWosQuery(params: WosSearchParams): string {
 // ---------------------------------------------------------------------------
 
 async function wosApiRequest(
-  apiKey: string,
+  apiKey: string | undefined,
   query: string,
   db: string,
   limit: number,
@@ -195,7 +195,7 @@ async function wosApiRequest(
   sortField: string,
 ): Promise<Record<string, unknown>> {
   const url = new URL(WOS_PROXY, window.location.origin);
-  url.searchParams.set("apiKey", apiKey);
+  if (apiKey) url.searchParams.set("apiKey", apiKey);
   url.searchParams.set("q", query);
   url.searchParams.set("db", db);
   url.searchParams.set("limit", String(Math.min(limit, PAGE_SIZE)));
@@ -218,7 +218,7 @@ async function wosApiRequest(
 // Public API
 // ---------------------------------------------------------------------------
 
-export async function getWosCount(apiKey: string, query: string, db = "WOS"): Promise<number> {
+export async function getWosCount(apiKey: string | undefined, query: string, db = "WOS"): Promise<number> {
   const data = await wosApiRequest(apiKey, query, db, 1, 1, "RS+D");
   const meta = (data.metadata ?? {}) as Record<string, unknown>;
   return Number(meta.total ?? 0);
