@@ -1,3 +1,5 @@
+import type { QualisClass, JournalMetrics, BibWork } from "@/types/bibliometric";
+
 export const FIELD_MAP: Record<string, string> = {
   PT: "Tipo de Publicação", AU: "Autores", AF: "Autores (Nome Completo)",
   TI: "Título", SO: "Periódico", LA: "Idioma", DT: "Tipo de Documento",
@@ -12,10 +14,10 @@ export const FIELD_MAP: Record<string, string> = {
   _FWCI: "FWCI", _CITE_PERCENTILE: "Percentil de Citação",
   _TOP_1PCT: "Top 1% Citados", _TOP_10PCT: "Top 10% Citados",
   _GLOBAL_SOUTH: "Sul Global", _CONTINENTS: "Continentes",
-  _N_COUNTRIES: "Nº Países Distintos", _N_INSTITUTIONS: "Nº Instituições Distintas",
+  _N_COUNTRIES: "Nº de Países Distintos", _N_INSTITUTIONS: "Nº de Instituições Distintas",
   _INST_TYPES: "Tipos de Instituição", _CITE_TRAJECTORY: "Trajetória de Citações",
-  _RETRACTED: "Retratado", _SDG: "ODS", _INDEXED: "Indexado Em",
-  _OA_URL: "URL Acesso Aberto",
+  _RETRACTED: "Retratado", _SDG: "ODS", _INDEXED: "Indexado em",
+  _OA_URL: "URL de Acesso Aberto",
 };
 
 export const NUMERIC_FIELDS = [
@@ -98,8 +100,8 @@ export const CHART_COLORS = [
 ];
 
 export const RECHARTS_COLORS = [
-  "var(--chart-1)", "var(--chart-2)", "var(--chart-3)",
-  "var(--chart-4)", "var(--chart-5)",
+  "hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))",
+  "hsl(var(--chart-4))", "hsl(var(--chart-5))",
 ];
 
 export const TAILWIND_CHART_FILLS = [
@@ -132,3 +134,65 @@ export const LANG_MAP: Record<string, string> = {
   ko: "Korean", ru: "Russian", ar: "Arabic", tr: "Turkish",
   nl: "Dutch", pl: "Polish", sv: "Swedish", cs: "Czech",
 };
+
+/* ── Qualis Classification ───────────────────────────────── */
+
+/** Minimum percentile (inclusive) for each Qualis class */
+export const QUALIS_THRESHOLDS: Record<QualisClass, number> = {
+  A1: 87.5,
+  A2: 75,
+  A3: 62.5,
+  A4: 50,
+  A5: 37.5,
+  A6: 25,
+  A7: 12.5,
+  A8: 0,
+};
+
+/** Weight in the weighted bibliographic production formula */
+export const QUALIS_WEIGHTS: Record<QualisClass, number> = {
+  A1: 1,
+  A2: 0.875,
+  A3: 0.75,
+  A4: 0.625,
+  A5: 0,
+  A6: 0,
+  A7: 0,
+  A8: 0,
+};
+
+/** All classes in order from highest to lowest */
+export const QUALIS_CLASSES: QualisClass[] = ["A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8"];
+
+/** Map a Scopus/WoS highest percentile value to a Qualis class */
+export function percentileToQualis(percentile: number): QualisClass {
+  for (const cls of QUALIS_CLASSES) {
+    if (percentile >= QUALIS_THRESHOLDS[cls]) return cls;
+  }
+  return "A8";
+}
+
+/** Compute weighted bibliographic production from works + journal metrics map */
+export function computeWeightedProduction(
+  works: BibWork[],
+  journalMetrics: Map<string, JournalMetrics>,
+): { total: number; counts: Record<QualisClass, number> } {
+  const counts: Record<QualisClass, number> = {
+    A1: 0, A2: 0, A3: 0, A4: 0, A5: 0, A6: 0, A7: 0, A8: 0,
+  };
+
+  for (const w of works) {
+    const issn = w.SN || w.EI;
+    if (!issn) continue;
+    const metrics = journalMetrics.get(issn) ?? journalMetrics.get(w.EI) ?? journalMetrics.get(w.SN);
+    if (!metrics?.qualisClass) continue;
+    counts[metrics.qualisClass]++;
+  }
+
+  let total = 0;
+  for (const cls of QUALIS_CLASSES) {
+    total += counts[cls] * QUALIS_WEIGHTS[cls];
+  }
+
+  return { total, counts };
+}

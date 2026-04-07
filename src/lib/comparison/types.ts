@@ -1,4 +1,4 @@
-import type { BibWork, DataSource, KpiData } from "@/types/bibliometric";
+import type { BibWork, DataSource, KpiData, QualisClass } from "@/types/bibliometric";
 
 /* ── Dataset ─────────────────────────────────────────────── */
 
@@ -89,4 +89,33 @@ export interface BoxPlotData {
 export interface DistributionItem {
   category: string;
   [datasetId: string]: string | number;
+}
+
+/* ── Qualis / Weighted Production ────────────────────────── */
+
+export interface QualisDatasetResult {
+  datasetId: string;
+  datasetName: string;
+  color: string;
+  weightedTotal: number;
+  counts: Record<QualisClass, number>;
+}
+
+export interface QualisJournalDetail {
+  issn: string;
+  title: string;
+  citeScore: number | null;
+  percentile: number | null;
+  qualisClass: QualisClass | null;
+  /** number of articles in this journal per dataset (index-aligned) */
+  articleCounts: number[];
+}
+
+/* ── Program-specific dataset ────────────────────────────── */
+
+export interface ProgramDataset extends ComparisonDataset {
+  programName: string;
+  affiliationSearch: string;
+  institutionId: string;
+  institutionName: string;
 }

@@ -515,3 +515,47 @@ export async function searchTopics(
   cacheSet(cacheKey, results);
   return results;
 }
+
+/* ── Institution autocomplete ────────────────────────────── */
+
+export interface OpenAlexInstitution {
+  id: string;
+  display_name: string;
+  country_code: string;
+  type: string;
+  works_count: number;
+}
+
+/** Search the OpenAlex /autocomplete/institutions endpoint. */
+export async function searchInstitutions(
+  query: string,
+  params?: Pick<OpenAlexSearchParams, "email" | "apiKey">,
+): Promise<OpenAlexInstitution[]> {
+  if (!query.trim()) return [];
+
+  const cacheKey = `inst:${query.trim().toLowerCase()}`;
+  const cached = cacheGet<OpenAlexInstitution[]>(cacheKey);
+  if (cached) return cached;
+
+  const urlParams = new URLSearchParams();
+  urlParams.set("q", query);
+  if (params?.apiKey) {
+    urlParams.set("api_key", params.apiKey);
+  } else {
+    urlParams.set("mailto", params?.email || CONTACT_EMAIL);
+  }
+
+  const resp = await fetch(`${OPENALEX_BASE}/autocomplete/institutions?${urlParams}`);
+  if (!resp.ok) return [];
+  const data = await resp.json();
+
+  const results = ((data.results ?? []) as Record<string, unknown>[]).map((i) => ({
+    id: String(i.id ?? ""),
+    display_name: String(i.display_name ?? ""),
+    country_code: String(i.country_code ?? ""),
+    type: String(i.type ?? ""),
+    works_count: Number(i.works_count ?? 0),
+  }));
+  cacheSet(cacheKey, results);
+  return results;
+}

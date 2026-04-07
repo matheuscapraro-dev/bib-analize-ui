@@ -6,7 +6,7 @@
  * stay thin.
  */
 
-import type { BibWork, KpiData, YearlyStats } from "@/types/bibliometric";
+import type { BibWork, KpiData, YearlyStats, JournalMetrics, QualisClass } from "@/types/bibliometric";
 import type {
   ComparisonDataset,
   KpiComparison,
@@ -16,6 +16,8 @@ import type {
   BoxPlotData,
   DistributionItem,
   OverlapResult,
+  QualisDatasetResult,
+  QualisJournalDetail,
 } from "./types";
 import {
   computeKpis,
@@ -587,4 +589,84 @@ export function computeFundingComparison(
       return sumB - sumA;
     })
     .slice(0, topN);
+}
+
+/* ================================================================
+ *  GROUP 9 — Qualis / Weighted Production
+ * ================================================================ */
+
+import { QUALIS_CLASSES, computeWeightedProduction } from "@/lib/constants";
+import { getWorkJournalMetrics } from "@/lib/scopus-enrich";
+
+export function computeQualisComparison(
+  datasets: ComparisonDataset[],
+  journalMetrics: Map<string, JournalMetrics>,
+): QualisDatasetResult[] {
+  return datasets.map((ds) => {
+    const { total, counts } = computeWeightedProduction(ds.works, journalMetrics);
+    return {
+      datasetId: ds.id,
+      datasetName: ds.name,
+      color: ds.color,
+      weightedTotal: total,
+      counts,
+    };
+  });
+}
+
+export function computeQualisDistribution(
+  datasets: ComparisonDataset[],
+  journalMetrics: Map<string, JournalMetrics>,
+): DistributionItem[] {
+  return QUALIS_CLASSES.map((cls) => {
+    const item: DistributionItem = { category: cls };
+    for (const ds of datasets) {
+      const { counts } = computeWeightedProduction(ds.works, journalMetrics);
+      item[ds.id] = counts[cls];
+    }
+    return item;
+  });
+}
+
+export function computeQualisJournalDetails(
+  datasets: ComparisonDataset[],
+  journalMetrics: Map<string, JournalMetrics>,
+): QualisJournalDetail[] {
+  const issnSet = new Set<string>();
+  for (const ds of datasets) {
+    for (const w of ds.works) {
+      if (w.SN) issnSet.add(w.SN);
+      if (w.EI) issnSet.add(w.EI);
+    }
+  }
+
+  const journalMap = new Map<string, QualisJournalDetail>();
+
+  for (const issn of issnSet) {
+    const m = journalMetrics.get(issn);
+    if (!m) continue;
+    if (journalMap.has(m.issn)) continue;
+
+    const detail: QualisJournalDetail = {
+      issn: m.issn,
+      title: m.title,
+      citeScore: m.citeScore,
+      percentile: m.percentile,
+      qualisClass: m.qualisClass,
+      articleCounts: datasets.map(() => 0),
+    };
+
+    datasets.forEach((ds, idx) => {
+      for (const w of ds.works) {
+        const wm = getWorkJournalMetrics(w, journalMetrics);
+        if (wm && wm.issn === m.issn) {
+          detail.articleCounts[idx]++;
+        }
+      }
+    });
+
+    journalMap.set(m.issn, detail);
+  }
+
+  return [...journalMap.values()].sort((a, b) => (b.percentile ?? -1) - (a.percentile ?? -1));
 }

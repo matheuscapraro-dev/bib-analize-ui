@@ -1,4 +1,12 @@
-export { type ComparisonDataset, type OverlapResult, DATASET_COLORS, MAX_DATASETS } from "./types";
+export {
+  type ComparisonDataset,
+  type OverlapResult,
+  type ProgramDataset,
+  type QualisDatasetResult,
+  type QualisJournalDetail,
+  DATASET_COLORS,
+  MAX_DATASETS,
+} from "./types";
 export { computeOverlap, normalize, pctDelta, computeBoxPlot } from "./utils";
 export {
   computeKpiComparison,
@@ -27,4 +35,7 @@ export {
   computeDocTypeComparison,
   computeLanguageComparison,
   computeFundingComparison,
+  computeQualisComparison,
+  computeQualisDistribution,
+  computeQualisJournalDetails,
 } from "./analyses";

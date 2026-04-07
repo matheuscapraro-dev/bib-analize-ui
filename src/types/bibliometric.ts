@@ -102,6 +102,21 @@ export interface NetworkData {
 
 export type DataSource = "openalex" | "upload" | "wos";
 
+/* ── Qualis / Journal Metrics ────────────────────────────── */
+
+export type QualisClass = "A1" | "A2" | "A3" | "A4" | "A5" | "A6" | "A7" | "A8";
+
+export interface JournalMetrics {
+  issn: string;
+  title: string;
+  citeScore: number | null;
+  percentile: number | null;
+  subjectArea: string;
+  sjr: number | null;
+  snip: number | null;
+  qualisClass: QualisClass | null;
+}
+
 export interface SavedAnalysis {
   id: string;
   name: string;
