@@ -7,7 +7,7 @@ import { ChartContainer } from "@/components/charts/chart-container";
 import { OverlayLineChart } from "@/components/charts/overlay-line-chart";
 import { EmptyState } from "@/components/empty-state";
 import { ArticleDrillDown } from "@/components/article-drill-down";
-import { useArticleDrillDown } from "@/hooks/use-drill-down";
+import { useProgramDrillDown } from "@/hooks/use-drill-down";
 import { LineChart as LineIcon } from "lucide-react";
 import type { BibWork } from "@/types/bibliometric";
 import {
@@ -18,15 +18,14 @@ import {
 
 export default function ProgramasProducaoPage() {
   const { programs, isReady } = usePrograms();
-  const allWorks = useMemo(() => programs.flatMap((p) => p.works), [programs]);
   const yearFilter = useCallback(
     (data: BibWork[], value: string) =>
       data.filter((w) => String(w.PY) === value),
     [],
   );
-  const { handleDrill, drillDownProps } = useArticleDrillDown(allWorks, yearFilter);
+  const { handleDrill, drillDownProps } = useProgramDrillDown(programs, yearFilter);
   const onDotClick = useCallback(
-    (e: Record<string, unknown>) => handleDrill(String(e.year)),
+    (e: Record<string, unknown>, dsId: string) => handleDrill(String(e.year), dsId),
     [handleDrill],
   );
 

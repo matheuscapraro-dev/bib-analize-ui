@@ -9,7 +9,7 @@ import { OverlapDisplay } from "@/components/comparison/overlap-display";
 import { TopNSelector } from "@/components/top-n-selector";
 import { EmptyState } from "@/components/empty-state";
 import { ArticleDrillDown } from "@/components/article-drill-down";
-import { useArticleDrillDown } from "@/hooks/use-drill-down";
+import { useProgramDrillDown } from "@/hooks/use-drill-down";
 import { filterWorksByField } from "@/lib/data-processing";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Hash } from "lucide-react";
@@ -22,16 +22,15 @@ import {
 export default function ProgramasTematicoPage() {
   const { programs, isReady } = usePrograms();
   const [topN, setTopN] = useState(20);
-  const allWorks = useMemo(() => programs.flatMap((p) => p.works), [programs]);
   const fieldRef = useRef("DE");
   const customFilter = useCallback(
     (data: import("@/types/bibliometric").BibWork[], value: string) =>
       filterWorksByField(data, fieldRef.current, value),
     [],
   );
-  const { handleDrill, drillDownProps } = useArticleDrillDown(allWorks, customFilter);
-  const drillKeyword = useCallback((e: Record<string, unknown>) => { fieldRef.current = "DE"; handleDrill(String(e.name)); }, [handleDrill]);
-  const drillArea = useCallback((e: Record<string, unknown>) => { fieldRef.current = "WC"; handleDrill(String(e.name)); }, [handleDrill]);
+  const { handleDrill, drillDownProps } = useProgramDrillDown(programs, customFilter);
+  const drillKeyword = useCallback((e: Record<string, unknown>, dsId: string) => { fieldRef.current = "DE"; handleDrill(String(e.name), dsId); }, [handleDrill]);
+  const drillArea = useCallback((e: Record<string, unknown>, dsId: string) => { fieldRef.current = "WC"; handleDrill(String(e.name), dsId); }, [handleDrill]);
 
   const keywordOverlap = useMemo(
     () => (isReady ? computeKeywordOverlap(programs) : null),

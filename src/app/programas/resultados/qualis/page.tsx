@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { EmptyState } from "@/components/empty-state";
 import { ArticleDrillDown } from "@/components/article-drill-down";
-import { useArticleDrillDown } from "@/hooks/use-drill-down";
+import { useProgramDrillDown } from "@/hooks/use-drill-down";
 import { getWorkJournalMetrics } from "@/lib/scopus-enrich";
 import { formatNumber } from "@/lib/utils";
 import { pctDelta } from "@/lib/comparison/utils";
@@ -28,7 +28,6 @@ import { Award, BarChart3, BookOpen, Table2 } from "lucide-react";
 export default function QualisPage() {
   const { programs, journalMetrics, isReady } = usePrograms();
   const [topN, setTopN] = useState(30);
-  const allWorks = useMemo(() => programs.flatMap((p) => p.works), [programs]);
   const qualisFilter = useCallback(
     (data: BibWork[], value: string) =>
       data.filter((w) => {
@@ -37,7 +36,7 @@ export default function QualisPage() {
       }),
     [journalMetrics],
   );
-  const { handleDrill, drillDownProps } = useArticleDrillDown(allWorks, qualisFilter);
+  const { handleDrill, drillCustom, drillDownProps } = useProgramDrillDown(programs, qualisFilter);
 
   const qualisResults = useMemo(
     () => (isReady ? computeQualisComparison(programs, journalMetrics) : []),
@@ -133,11 +132,23 @@ export default function QualisPage() {
                         </span>
                       </div>
                     </td>
-                    {qualisResults.map((q) => (
-                      <td key={q.datasetId} className="text-right py-2 px-3 tabular-nums">
-                        {q.counts[cls] ?? 0}
-                      </td>
-                    ))}
+                    {qualisResults.map((q) => {
+                      const count = q.counts[cls] ?? 0;
+                      return (
+                        <td key={q.datasetId} className="text-right py-2 px-3 tabular-nums">
+                          {count > 0 ? (
+                            <button
+                              className="hover:underline cursor-pointer"
+                              onClick={() => handleDrill(cls, q.datasetId)}
+                            >
+                              {count}
+                            </button>
+                          ) : (
+                            <span className="text-muted-foreground/40">0</span>
+                          )}
+                        </td>
+                      );
+                    })}
                   </tr>
                 ))}
               </tbody>
@@ -172,7 +183,7 @@ export default function QualisPage() {
               layout="horizontal"
               height={380}
               stacked={false}
-              onBarClick={(e) => handleDrill(String(e.category))}
+              onBarClick={(e, dsId) => handleDrill(String(e.category), dsId)}
             />
           </ChartContainer>
         </TabsContent>
@@ -230,7 +241,23 @@ export default function QualisPage() {
                         </td>
                         {j.articleCounts.map((count, idx) => (
                           <td key={idx} className="text-right py-2 px-2 tabular-nums">
-                            {count > 0 ? count : <span className="text-muted-foreground/40">0</span>}
+                            {count > 0 ? (
+                              <button
+                                className="hover:underline cursor-pointer"
+                                onClick={() => {
+                                  const pw = programs[idx].works.filter((w) => {
+                                    const sn = (w.SN ?? w.BN ?? "").replace(/[^\dXx]/g, "");
+                                    const issn = j.issn.replace(/[^\dXx]/g, "");
+                                    return sn === issn;
+                                  });
+                                  drillCustom(pw, `${j.title || j.issn} — ${programs[idx].name}`);
+                                }}
+                              >
+                                {count}
+                              </button>
+                            ) : (
+                              <span className="text-muted-foreground/40">0</span>
+                            )}
                           </td>
                         ))}
                       </tr>

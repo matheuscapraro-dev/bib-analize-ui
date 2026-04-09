@@ -8,7 +8,7 @@ import { ComparisonBarChart } from "@/components/charts/comparison-bar-chart";
 import { TopNSelector } from "@/components/top-n-selector";
 import { EmptyState } from "@/components/empty-state";
 import { ArticleDrillDown } from "@/components/article-drill-down";
-import { useArticleDrillDown } from "@/hooks/use-drill-down";
+import { useProgramDrillDown } from "@/hooks/use-drill-down";
 import { filterWorksByField } from "@/lib/data-processing";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BookOpen } from "lucide-react";
@@ -23,7 +23,6 @@ import {
 export default function ProgramasDiversidadePage() {
   const { programs, isReady } = usePrograms();
   const [topN, setTopN] = useState(10);
-  const allWorks = useMemo(() => programs.flatMap((p) => p.works), [programs]);
   const fieldRef = useRef("OA");
   const customFilter = useCallback(
     (data: BibWork[], value: string) => {
@@ -38,11 +37,11 @@ export default function ProgramasDiversidadePage() {
     },
     [],
   );
-  const { handleDrill, drillDownProps } = useArticleDrillDown(allWorks, customFilter);
-  const drillOA = useCallback((e: Record<string, unknown>) => { fieldRef.current = "OA"; handleDrill(String(e.category)); }, [handleDrill]);
-  const drillDT = useCallback((e: Record<string, unknown>) => { fieldRef.current = "DT"; handleDrill(String(e.category)); }, [handleDrill]);
-  const drillLA = useCallback((e: Record<string, unknown>) => { fieldRef.current = "LA"; handleDrill(String(e.category)); }, [handleDrill]);
-  const drillFU = useCallback((e: Record<string, unknown>) => { fieldRef.current = "FU"; handleDrill(String(e.name ?? e.category)); }, [handleDrill]);
+  const { handleDrill, drillDownProps } = useProgramDrillDown(programs, customFilter);
+  const drillOA = useCallback((e: Record<string, unknown>, dsId: string) => { fieldRef.current = "OA"; handleDrill(String(e.category), dsId); }, [handleDrill]);
+  const drillDT = useCallback((e: Record<string, unknown>, dsId: string) => { fieldRef.current = "DT"; handleDrill(String(e.category), dsId); }, [handleDrill]);
+  const drillLA = useCallback((e: Record<string, unknown>, dsId: string) => { fieldRef.current = "LA"; handleDrill(String(e.category), dsId); }, [handleDrill]);
+  const drillFU = useCallback((e: Record<string, unknown>, dsId: string) => { fieldRef.current = "FU"; handleDrill(String(e.name ?? e.category), dsId); }, [handleDrill]);
 
   const oaData = useMemo(
     () => (isReady ? computeOaComparison(programs) : []),

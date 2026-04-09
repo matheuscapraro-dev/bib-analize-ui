@@ -29,7 +29,7 @@ interface ComparisonBarChartProps {
   labelMaxLen?: number;
   showLegend?: boolean;
   stacked?: boolean;
-  onBarClick?: (entry: Record<string, unknown>) => void;
+  onBarClick?: (entry: Record<string, unknown>, datasetId: string) => void;
 }
 
 export function ComparisonBarChart({
@@ -104,7 +104,7 @@ export function ComparisonBarChart({
             onClick={onBarClick ? (_data: unknown, _idx: number, e: React.MouseEvent) => {
               const entry = (e as unknown as { payload?: Record<string, unknown> }).payload
                 ?? (_data as Record<string, unknown>);
-              onBarClick(entry);
+              onBarClick(entry, ds.id);
             } : undefined}
             style={onBarClick ? { cursor: "pointer" } : undefined}
           />

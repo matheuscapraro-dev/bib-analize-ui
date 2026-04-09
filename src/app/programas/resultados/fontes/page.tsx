@@ -9,7 +9,7 @@ import { OverlapDisplay } from "@/components/comparison/overlap-display";
 import { TopNSelector } from "@/components/top-n-selector";
 import { EmptyState } from "@/components/empty-state";
 import { ArticleDrillDown } from "@/components/article-drill-down";
-import { useArticleDrillDown } from "@/hooks/use-drill-down";
+import { useProgramDrillDown } from "@/hooks/use-drill-down";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Newspaper } from "lucide-react";
@@ -23,8 +23,7 @@ import {
 export default function ProgramasFontesPage() {
   const { programs, isReady } = usePrograms();
   const [topN, setTopN] = useState(20);
-  const allWorks = useMemo(() => programs.flatMap((p) => p.works), [programs]);
-  const { handleDrill, drillDownProps } = useArticleDrillDown(allWorks, "SO");
+  const { handleDrill, drillDownProps } = useProgramDrillDown(programs, "SO");
 
   const overlap = useMemo(
     () => (isReady ? computeSourceOverlap(programs) : null),
@@ -80,7 +79,7 @@ export default function ProgramasFontesPage() {
               datasets={programs}
               height={Math.max(400, topN * 28)}
               layout="vertical"
-              onBarClick={(e) => handleDrill(String(e.name))}
+              onBarClick={(e, dsId) => handleDrill(String(e.name), dsId)}
             />
           </ChartContainer>
         </TabsContent>

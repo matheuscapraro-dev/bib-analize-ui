@@ -27,7 +27,7 @@ interface OverlayLineChartProps {
   height?: number;
   showLegend?: boolean;
   yLabel?: string;
-  onDotClick?: (entry: Record<string, unknown>) => void;
+  onDotClick?: (entry: Record<string, unknown>, datasetId: string) => void;
 }
 
 export function OverlayLineChart({
@@ -64,7 +64,7 @@ export function OverlayLineChart({
               style: { cursor: "pointer" },
               onClick: (_e: unknown, payload: unknown) => {
                 const p = payload as { payload?: Record<string, unknown> };
-                if (p?.payload) onDotClick(p.payload);
+                if (p?.payload) onDotClick(p.payload, ds.id);
               },
             } : { r: 5 }}
           />

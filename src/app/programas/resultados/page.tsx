@@ -5,6 +5,8 @@ import { usePrograms } from "@/store/program-context";
 import { PageHeader } from "@/components/page-header";
 import { ChartContainer } from "@/components/charts/chart-container";
 import { RadarChart } from "@/components/charts/radar-chart";
+import { ArticleDrillDown } from "@/components/article-drill-down";
+import { useProgramDrillDown } from "@/hooks/use-drill-down";
 import { Separator } from "@/components/ui/separator";
 import { formatNumber } from "@/lib/utils";
 import { pctDelta } from "@/lib/comparison/utils";
@@ -20,6 +22,7 @@ import {
 
 export default function ProgramasVisaoGeralPage() {
   const { programs, isReady } = usePrograms();
+  const { handleDrillAll, drillDownProps } = useProgramDrillDown(programs);
 
   const kpis = useMemo(
     () => (isReady ? computeKpiComparison(programs) : []),
@@ -69,10 +72,10 @@ export default function ProgramasVisaoGeralPage() {
               </tr>
             </thead>
             <tbody>
-              <KpiRow label="Documentos" icon={<FileText className="size-3.5" />} values={kpis.map((k) => k.kpis.totalWorks)} />
+              <KpiRow label="Documentos" icon={<FileText className="size-3.5" />} values={kpis.map((k) => k.kpis.totalWorks)} onValueClick={(i) => handleDrillAll(kpis[i].datasetId, "Documentos")} />
               <KpiRow label="Autores únicos" icon={<Users className="size-3.5" />} values={kpis.map((k) => k.kpis.uniqueAuthors)} />
               <KpiRow label="Fontes" icon={<Newspaper className="size-3.5" />} values={kpis.map((k) => k.kpis.uniqueSources)} />
-              <KpiRow label="Citações totais" icon={<TrendingUp className="size-3.5" />} values={kpis.map((k) => k.kpis.totalCitations)} />
+              <KpiRow label="Citações totais" icon={<TrendingUp className="size-3.5" />} values={kpis.map((k) => k.kpis.totalCitations)} onValueClick={(i) => handleDrillAll(kpis[i].datasetId, "Citações")} />
               <KpiRow label="Média citações/doc." icon={<BarChart3 className="size-3.5" />} values={kpis.map((k) => k.kpis.meanCitations)} decimal />
               <KpiRow
                 label="Período"
@@ -99,6 +102,8 @@ export default function ProgramasVisaoGeralPage() {
           height={420}
         />
       </ChartContainer>
+
+      <ArticleDrillDown {...drillDownProps} />
     </div>
   );
 }
@@ -109,12 +114,14 @@ function KpiRow({
   values,
   textValues,
   decimal,
+  onValueClick,
 }: {
   label: string;
   icon: React.ReactNode;
   values?: number[];
   textValues?: string[];
   decimal?: boolean;
+  onValueClick?: (index: number) => void;
 }) {
   return (
     <tr className="border-b last:border-0">
@@ -127,9 +134,16 @@ function KpiRow({
       {values
         ? values.map((v, i) => {
             const delta = i > 0 ? pctDelta(v, values[0]) : null;
+            const formatted = decimal ? v.toFixed(1) : formatNumber(v);
             return (
               <td key={i} className="text-right py-2.5 px-3 tabular-nums font-medium">
-                {decimal ? v.toFixed(1) : formatNumber(v)}
+                {onValueClick ? (
+                  <button className="hover:underline cursor-pointer" onClick={() => onValueClick(i)}>
+                    {formatted}
+                  </button>
+                ) : (
+                  formatted
+                )}
                 {delta !== null && delta !== 0 && (
                   <span className={`text-xs ml-1 ${delta > 0 ? "text-emerald-500" : "text-rose-500"}`}>
                     {delta > 0 ? "+" : ""}
