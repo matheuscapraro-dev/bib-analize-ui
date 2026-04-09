@@ -28,6 +28,10 @@ import {
   extractInstitutions,
   authorMetrics,
   bradfordLaw,
+  lotkaLaw,
+  calculateHIndex,
+  citationDistribution,
+  extractTopReferences,
 } from "@/lib/data-processing";
 import {
   computeOverlap,
@@ -669,4 +673,203 @@ export function computeQualisJournalDetails(
   }
 
   return [...journalMap.values()].sort((a, b) => (b.percentile ?? -1) - (a.percentile ?? -1));
+}
+
+/* ================================================================
+ *  GROUP 10 — Collaboration & Network Metrics
+ * ================================================================ */
+
+/** Top institutions comparison (like top authors / top sources). */
+export function computeTopInstitutionsComparison(
+  datasets: ComparisonDataset[],
+  topN = 20,
+): ButterflyItem[] {
+  const allCounts = datasets.map((ds) => countField(ds.works, "C3"));
+
+  const allNames = new Set<string>();
+  for (const m of allCounts) {
+    for (const [name] of topNFromMap(m, topN)) allNames.add(name);
+  }
+
+  return [...allNames]
+    .map((name) => {
+      const item: ButterflyItem = { name };
+      datasets.forEach((ds, i) => {
+        item[ds.id] = allCounts[i].get(name) ?? 0;
+      });
+      return item;
+    })
+    .sort((a, b) => {
+      const sumA = datasets.reduce((s, ds) => s + ((a[ds.id] as number) ?? 0), 0);
+      const sumB = datasets.reduce((s, ds) => s + ((b[ds.id] as number) ?? 0), 0);
+      return sumB - sumA;
+    })
+    .slice(0, topN);
+}
+
+/** Cross-program author overlap detail: authors who publish in multiple programs. */
+export function computeCrossProgramAuthors(
+  datasets: ComparisonDataset[],
+): { name: string; programs: string[]; totalDocs: number }[] {
+  const authorPrograms = new Map<string, { programs: Set<string>; docs: number }>();
+
+  for (const ds of datasets) {
+    const counted = new Set<string>();
+    for (const w of ds.works) {
+      const auStr = typeof w.AU === "string" ? w.AU : "";
+      for (const a of auStr.split("; ").map((s) => s.trim()).filter(Boolean)) {
+        if (!counted.has(a)) {
+          const entry = authorPrograms.get(a) ?? { programs: new Set(), docs: 0 };
+          entry.programs.add(ds.name);
+          authorPrograms.set(a, entry);
+          counted.add(a);
+        }
+        const entry = authorPrograms.get(a)!;
+        entry.docs++;
+      }
+    }
+  }
+
+  return [...authorPrograms.entries()]
+    .filter(([, v]) => v.programs.size > 1)
+    .map(([name, v]) => ({ name, programs: [...v.programs], totalDocs: v.docs }))
+    .sort((a, b) => b.programs.length - a.programs.length || b.totalDocs - a.totalDocs);
+}
+
+/* ================================================================
+ *  GROUP 11 — h-Index & Citation Details
+ * ================================================================ */
+
+/** h-index, g-index, and citation metrics per program. */
+export function computeHIndexComparison(
+  datasets: ComparisonDataset[],
+): { metric: string; [datasetId: string]: number | string }[] {
+  const stats = datasets.map((ds) => {
+    const citations = ds.works.map((w) => (typeof w.Z9 === "number" ? w.Z9 : typeof w.TC === "number" ? w.TC : 0));
+    const sorted = [...citations].sort((a, b) => b - a);
+    const h = calculateHIndex(citations);
+
+    // g-index
+    let g = 0;
+    let cumSum = 0;
+    for (let i = 0; i < sorted.length; i++) {
+      cumSum += sorted[i];
+      if (cumSum >= (i + 1) * (i + 1)) g = i + 1;
+    }
+
+    const uncited = citations.filter((c) => c === 0).length;
+    const median = sorted.length
+      ? sorted.length % 2
+        ? sorted[Math.floor(sorted.length / 2)]
+        : (sorted[Math.floor(sorted.length / 2) - 1] + sorted[Math.floor(sorted.length / 2)]) / 2
+      : 0;
+
+    return { h, g, uncited, uncitedPct: ds.works.length ? Math.round((uncited / ds.works.length) * 1000) / 10 : 0, median };
+  });
+
+  const rows: { metric: string; [k: string]: number | string }[] = [
+    { metric: "h-index" },
+    { metric: "g-index" },
+    { metric: "Mediana citações" },
+    { metric: "Não citados (%)" },
+  ];
+
+  datasets.forEach((ds, i) => {
+    rows[0][ds.id] = stats[i].h;
+    rows[1][ds.id] = stats[i].g;
+    rows[2][ds.id] = stats[i].median;
+    rows[3][ds.id] = stats[i].uncitedPct;
+  });
+
+  return rows;
+}
+
+/** Citation distribution bins per program for histogram comparison. */
+export function computeCitationDistributionComparison(
+  datasets: ComparisonDataset[],
+): DistributionItem[] {
+  const edges = [0, 1, 2, 5, 10, 20, 50, 100, 200, 500, Infinity];
+
+  return edges.slice(0, -1).map((lo, i) => {
+    const hi = edges[i + 1];
+    const label = hi === Infinity ? `${lo}+` : lo === hi - 1 ? `${lo}` : `${lo}–${hi - 1}`;
+    const item: DistributionItem = { category: label };
+    datasets.forEach((ds) => {
+      item[ds.id] = ds.works.filter((w) => {
+        const c = typeof w.Z9 === "number" ? w.Z9 : typeof w.TC === "number" ? w.TC : 0;
+        return c >= lo && c < hi;
+      }).length;
+    });
+    return item;
+  }).filter((item) => datasets.some((ds) => (item[ds.id] as number) > 0));
+}
+
+/** Total citations received per year (not average). */
+export function computeTotalCitationsTimeline(
+  datasets: ComparisonDataset[],
+): TemporalOverlayPoint[] {
+  const allStats = datasets.map((ds) => yearlyStats(ds.works));
+
+  const yearSet = new Set<number>();
+  for (const stats of allStats) {
+    for (const s of stats) yearSet.add(s.year);
+  }
+  const years = [...yearSet].sort((a, b) => a - b);
+
+  return years.map((year) => {
+    const point: TemporalOverlayPoint = { year };
+    datasets.forEach((ds, i) => {
+      const stat = allStats[i].find((s) => s.year === year);
+      point[ds.id] = stat?.totalCitations ?? 0;
+    });
+    return point;
+  });
+}
+
+/* ================================================================
+ *  GROUP 12 — Lotka & Bradford Laws Comparison
+ * ================================================================ */
+
+/** Lotka law per program: exponent, total authors, core count. */
+export function computeLotkaComparison(datasets: ComparisonDataset[]) {
+  return datasets.map((ds) => ({
+    datasetId: ds.id,
+    datasetName: ds.name,
+    color: ds.color,
+    lotka: lotkaLaw(ds.works),
+  }));
+}
+
+/* ================================================================
+ *  GROUP 13 — Reference / Intellectual Base
+ * ================================================================ */
+
+/** Top cited references per program. */
+export function computeTopReferencesComparison(
+  datasets: ComparisonDataset[],
+  topN = 20,
+) {
+  return datasets.map((ds) => ({
+    datasetId: ds.id,
+    datasetName: ds.name,
+    color: ds.color,
+    references: extractTopReferences(ds.works, topN),
+  }));
+}
+
+/** Reference overlap: shared cited references between programs. */
+export function computeReferenceOverlap(datasets: ComparisonDataset[]): OverlapResult {
+  const sets = datasets.map((ds) => {
+    const refs = new Set<string>();
+    for (const w of ds.works) {
+      const cr = w.CR ?? "";
+      if (!cr) continue;
+      for (const ref of cr.split("; ")) {
+        const trimmed = ref.trim();
+        if (trimmed.length > 5) refs.add(trimmed);
+      }
+    }
+    return [...refs];
+  });
+  return computeOverlap(sets);
 }

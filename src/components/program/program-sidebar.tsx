@@ -5,12 +5,15 @@ import { usePathname } from "next/navigation";
 import {
   Award,
   BarChart3,
+  BookMarked,
   BookOpen,
   Globe,
   Hash,
   LayoutDashboard,
   LineChart,
+  Network,
   Newspaper,
+  Quote,
   TrendingUp,
   Users,
 } from "lucide-react";
@@ -21,12 +24,16 @@ const NAV_ITEMS = [
   { href: "/programas/resultados", label: "Visão Geral", icon: LayoutDashboard },
   { href: "/programas/resultados/qualis", label: "Qualis / Produção", icon: Award },
   { href: "/programas/resultados/producao", label: "Produção Temporal", icon: LineChart },
+  { href: "/programas/resultados/citacoes", label: "Citações & h-Index", icon: Quote },
   { href: "/programas/resultados/autores", label: "Autores", icon: Users },
   { href: "/programas/resultados/fontes", label: "Fontes", icon: Newspaper },
   { href: "/programas/resultados/tematico", label: "Temático", icon: Hash },
   { href: "/programas/resultados/geografico", label: "Geográfico", icon: Globe },
+  { href: "/programas/resultados/colaboracao", label: "Colaboração & Redes", icon: Network },
   { href: "/programas/resultados/impacto", label: "Impacto", icon: TrendingUp },
   { href: "/programas/resultados/diversidade", label: "Diversidade", icon: BookOpen },
+  { href: "/programas/resultados/lotka-bradford", label: "Lotka & Bradford", icon: BarChart3 },
+  { href: "/programas/resultados/referencias", label: "Base Intelectual", icon: BookMarked },
 ] as const;
 
 interface ProgramSidebarProps {
