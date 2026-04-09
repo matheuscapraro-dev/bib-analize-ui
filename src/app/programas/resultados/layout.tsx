@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { ArrowLeft, GraduationCap, Menu } from "lucide-react";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { loadProgramData } from "@/lib/program-store";
 import type { BibWork, JournalMetrics } from "@/types/bibliometric";
 
 function DataLoader({ children }: { children: React.ReactNode }) {
@@ -22,49 +23,49 @@ function DataLoader({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    try {
-      const raw = sessionStorage.getItem("programas-data");
-      if (!raw) {
+    loadProgramData()
+      .then((data) => {
+        if (!data) {
+          router.replace("/programas");
+          return;
+        }
+
+        // Restore programs
+        for (const pw of data.programWorks ?? []) {
+          const meta = (data.programs as {
+            id: string;
+            name: string;
+            affiliationSearch: string;
+            searchMode?: string;
+            authorIds?: string;
+          }[]).find((p: { id: string }) => p.id === pw.id);
+          if (!meta) continue;
+          addProgram({
+            id: pw.id,
+            name: meta.name,
+            source: data.dataSource ?? "openalex",
+            works: pw.works as BibWork[],
+            programName: meta.name,
+            affiliationSearch: meta.affiliationSearch ?? "",
+            institutionId: data.institution?.id ?? "",
+            institutionName: data.institution?.display_name ?? "",
+            searchMode: (meta.searchMode as "affiliation" | "authorIds") ?? "affiliation",
+            authorIds: meta.authorIds ?? "",
+          });
+        }
+
+        // Restore journal metrics
+        if (data.journalMetrics) {
+          const map = new Map<string, JournalMetrics>(data.journalMetrics);
+          setJournalMetrics(map);
+        }
+
+        setLoaded(true);
+      })
+      .catch(() => {
+        setError("Erro ao carregar dados dos programas.");
         router.replace("/programas");
-        return;
-      }
-      const data = JSON.parse(raw);
-
-      // Restore programs
-      for (const pw of data.programWorks ?? []) {
-        const meta = (data.programs as {
-          id: string;
-          name: string;
-          affiliationSearch: string;
-          searchMode?: string;
-          authorIds?: string;
-        }[]).find((p) => p.id === pw.id);
-        if (!meta) continue;
-        addProgram({
-          id: pw.id,
-          name: meta.name,
-          source: data.dataSource ?? "openalex",
-          works: pw.works as BibWork[],
-          programName: meta.name,
-          affiliationSearch: meta.affiliationSearch ?? "",
-          institutionId: data.institution?.id ?? "",
-          institutionName: data.institution?.display_name ?? "",
-          searchMode: (meta.searchMode as "affiliation" | "authorIds") ?? "affiliation",
-          authorIds: meta.authorIds ?? "",
-        });
-      }
-
-      // Restore journal metrics
-      if (data.journalMetrics) {
-        const map = new Map<string, JournalMetrics>(data.journalMetrics);
-        setJournalMetrics(map);
-      }
-
-      setLoaded(true);
-    } catch (err) {
-      setError("Erro ao carregar dados dos programas.");
-      router.replace("/programas");
-    }
+      });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!loaded) {

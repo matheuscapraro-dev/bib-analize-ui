@@ -2,7 +2,7 @@ import type { BibWork, DataSource, SavedAnalysis, SavedAnalysisRecord } from "@/
 
 const DB_NAME = "bibanalyze";
 const STORE_NAME = "analyses";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -12,6 +12,9 @@ function openDB(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(STORE_NAME)) {
         const store = db.createObjectStore(STORE_NAME, { keyPath: "id" });
         store.createIndex("createdAt", "createdAt", { unique: false });
+      }
+      if (!db.objectStoreNames.contains("program_data")) {
+        db.createObjectStore("program_data");
       }
     };
     req.onsuccess = () => resolve(req.result);

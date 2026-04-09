@@ -11,6 +11,7 @@ import {
 } from "@/lib/openalex-api";
 import { fetchWosWorks, type WosSearchParams } from "@/lib/wos-api";
 import { enrichJournalMetrics } from "@/lib/scopus-enrich";
+import { saveProgramData } from "@/lib/program-store";
 import type { BibWork } from "@/types/bibliometric";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -277,7 +278,7 @@ export default function ProgramasPage() {
         },
       };
 
-      sessionStorage.setItem("programas-data", JSON.stringify(payload));
+      await saveProgramData(payload);
       toast.success(`Busca concluída! ${allWorks.length} registros de ${validPrograms.length} programas.`);
       router.push("/programas/resultados");
     } catch (err) {
