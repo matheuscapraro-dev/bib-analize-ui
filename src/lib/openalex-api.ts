@@ -162,7 +162,9 @@ function workToRow(work: Record<string, unknown>): Partial<BibWork> {
 
   // References
   row.CR = "";
-  row.NR = ((work.referenced_works ?? []) as unknown[]).length || Number(work.referenced_works_count ?? 0);
+  const refWorksRaw = (work.referenced_works ?? []) as string[];
+  row._REF_IDS = refWorksRaw.map((r) => String(r).replace("https://openalex.org/", ""));
+  row.NR = refWorksRaw.length || Number(work.referenced_works_count ?? 0);
 
   // Funding
   const funders = (work.funders ?? []) as Record<string, unknown>[];

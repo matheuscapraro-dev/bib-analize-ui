@@ -42,7 +42,8 @@ export interface BibWork {
   _SDG: string;
   _INDEXED: string;
   _OA_URL: string;
-  [key: string]: string | number | boolean | null | undefined;
+  _REF_IDS: string[];
+  [key: string]: string | number | boolean | null | string[] | undefined;
 }
 
 export interface YearlyStats {

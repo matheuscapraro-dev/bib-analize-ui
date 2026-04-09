@@ -6,7 +6,7 @@ import {
   BarChart3, BookOpen, Building2, FileText, Globe, Hash,
   LayoutDashboard, Library, LineChart, MapPin, Network,
   Sparkles, TrendingUp, Users, Newspaper, DollarSign, Search,
-  GitCompareArrows, GraduationCap,
+  GitCompareArrows, GraduationCap, GitBranch,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -93,6 +93,19 @@ export function AppSidebar({ className }: AppSidebarProps) {
           >
             <GraduationCap className="size-4 shrink-0" />
             Programas de Pós-Graduação
+          </Link>
+
+          <Link
+            href="/referencias"
+            className={cn(
+              "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+              pathname.startsWith("/referencias")
+                ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+            )}
+          >
+            <GitBranch className="size-4 shrink-0" />
+            Explorador de Referências
           </Link>
         </nav>
       </ScrollArea>
