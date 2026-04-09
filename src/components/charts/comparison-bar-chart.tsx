@@ -29,6 +29,7 @@ interface ComparisonBarChartProps {
   labelMaxLen?: number;
   showLegend?: boolean;
   stacked?: boolean;
+  onBarClick?: (entry: Record<string, unknown>) => void;
 }
 
 export function ComparisonBarChart({
@@ -40,6 +41,7 @@ export function ComparisonBarChart({
   labelMaxLen = 35,
   showLegend = true,
   stacked = false,
+  onBarClick,
 }: ComparisonBarChartProps) {
   const isVertical = layout === "vertical";
 
@@ -99,6 +101,12 @@ export function ComparisonBarChart({
             fill={ds.color}
             radius={isVertical ? [0, 4, 4, 0] : [4, 4, 0, 0]}
             stackId={stacked ? "stack" : undefined}
+            onClick={onBarClick ? (_data: unknown, _idx: number, e: React.MouseEvent) => {
+              const entry = (e as unknown as { payload?: Record<string, unknown> }).payload
+                ?? (_data as Record<string, unknown>);
+              onBarClick(entry);
+            } : undefined}
+            style={onBarClick ? { cursor: "pointer" } : undefined}
           />
         ))}
       </RechartsBarChart>

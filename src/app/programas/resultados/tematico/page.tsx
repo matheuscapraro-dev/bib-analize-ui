@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { usePrograms } from "@/store/program-context";
 import { PageHeader } from "@/components/page-header";
 import { ChartContainer } from "@/components/charts/chart-container";
@@ -8,6 +8,9 @@ import { ComparisonBarChart } from "@/components/charts/comparison-bar-chart";
 import { OverlapDisplay } from "@/components/comparison/overlap-display";
 import { TopNSelector } from "@/components/top-n-selector";
 import { EmptyState } from "@/components/empty-state";
+import { ArticleDrillDown } from "@/components/article-drill-down";
+import { useArticleDrillDown } from "@/hooks/use-drill-down";
+import { filterWorksByField } from "@/lib/data-processing";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Hash } from "lucide-react";
 import {
@@ -19,6 +22,16 @@ import {
 export default function ProgramasTematicoPage() {
   const { programs, isReady } = usePrograms();
   const [topN, setTopN] = useState(20);
+  const allWorks = useMemo(() => programs.flatMap((p) => p.works), [programs]);
+  const fieldRef = useRef("DE");
+  const customFilter = useCallback(
+    (data: import("@/types/bibliometric").BibWork[], value: string) =>
+      filterWorksByField(data, fieldRef.current, value),
+    [],
+  );
+  const { handleDrill, drillDownProps } = useArticleDrillDown(allWorks, customFilter);
+  const drillKeyword = useCallback((e: Record<string, unknown>) => { fieldRef.current = "DE"; handleDrill(String(e.name)); }, [handleDrill]);
+  const drillArea = useCallback((e: Record<string, unknown>) => { fieldRef.current = "WC"; handleDrill(String(e.name)); }, [handleDrill]);
 
   const keywordOverlap = useMemo(
     () => (isReady ? computeKeywordOverlap(programs) : null),
@@ -75,6 +88,7 @@ export default function ProgramasTematicoPage() {
               height={Math.max(400, topN * 28)}
               layout="vertical"
               labelMaxLen={40}
+              onBarClick={drillKeyword}
             />
           </ChartContainer>
         </TabsContent>
@@ -88,10 +102,13 @@ export default function ProgramasTematicoPage() {
               height={Math.max(400, 15 * 28)}
               layout="vertical"
               labelMaxLen={40}
+              onBarClick={drillArea}
             />
           </ChartContainer>
         </TabsContent>
       </Tabs>
+
+      <ArticleDrillDown {...drillDownProps} />
     </div>
   );
 }

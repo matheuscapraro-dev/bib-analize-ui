@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { usePrograms } from "@/store/program-context";
 import { PageHeader } from "@/components/page-header";
 import { ChartContainer } from "@/components/charts/chart-container";
@@ -11,9 +11,13 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { EmptyState } from "@/components/empty-state";
+import { ArticleDrillDown } from "@/components/article-drill-down";
+import { useArticleDrillDown } from "@/hooks/use-drill-down";
+import { getWorkJournalMetrics } from "@/lib/scopus-enrich";
 import { formatNumber } from "@/lib/utils";
 import { pctDelta } from "@/lib/comparison/utils";
 import { QUALIS_CLASSES, QUALIS_WEIGHTS } from "@/lib/constants";
+import type { BibWork } from "@/types/bibliometric";
 import {
   computeQualisComparison,
   computeQualisDistribution,
@@ -24,6 +28,16 @@ import { Award, BarChart3, BookOpen, Table2 } from "lucide-react";
 export default function QualisPage() {
   const { programs, journalMetrics, isReady } = usePrograms();
   const [topN, setTopN] = useState(30);
+  const allWorks = useMemo(() => programs.flatMap((p) => p.works), [programs]);
+  const qualisFilter = useCallback(
+    (data: BibWork[], value: string) =>
+      data.filter((w) => {
+        const m = getWorkJournalMetrics(w, journalMetrics);
+        return m?.qualisClass === value;
+      }),
+    [journalMetrics],
+  );
+  const { handleDrill, drillDownProps } = useArticleDrillDown(allWorks, qualisFilter);
 
   const qualisResults = useMemo(
     () => (isReady ? computeQualisComparison(programs, journalMetrics) : []),
@@ -158,6 +172,7 @@ export default function QualisPage() {
               layout="horizontal"
               height={380}
               stacked={false}
+              onBarClick={(e) => handleDrill(String(e.category))}
             />
           </ChartContainer>
         </TabsContent>
@@ -232,6 +247,8 @@ export default function QualisPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <ArticleDrillDown {...drillDownProps} />
     </div>
   );
 }

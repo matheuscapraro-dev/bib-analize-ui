@@ -8,6 +8,8 @@ import { ComparisonBarChart } from "@/components/charts/comparison-bar-chart";
 import { OverlapDisplay } from "@/components/comparison/overlap-display";
 import { TopNSelector } from "@/components/top-n-selector";
 import { EmptyState } from "@/components/empty-state";
+import { ArticleDrillDown } from "@/components/article-drill-down";
+import { useArticleDrillDown } from "@/hooks/use-drill-down";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Users } from "lucide-react";
 import {
@@ -19,6 +21,8 @@ import {
 export default function ProgramasAutoresPage() {
   const { programs, isReady } = usePrograms();
   const [topN, setTopN] = useState(20);
+  const allWorks = useMemo(() => programs.flatMap((p) => p.works), [programs]);
+  const { handleDrill, drillDownProps } = useArticleDrillDown(allWorks, "AU");
 
   const overlap = useMemo(
     () => (isReady ? computeAuthorOverlap(programs) : null),
@@ -75,6 +79,7 @@ export default function ProgramasAutoresPage() {
               height={Math.max(400, topN * 28)}
               layout="vertical"
               labelMaxLen={30}
+              onBarClick={(e) => handleDrill(String(e.name))}
             />
           </ChartContainer>
         </TabsContent>
@@ -115,6 +120,8 @@ export default function ProgramasAutoresPage() {
           </ChartContainer>
         </TabsContent>
       </Tabs>
+
+      <ArticleDrillDown {...drillDownProps} />
     </div>
   );
 }

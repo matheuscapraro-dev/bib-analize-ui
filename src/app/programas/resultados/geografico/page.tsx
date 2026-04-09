@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { usePrograms } from "@/store/program-context";
 import { PageHeader } from "@/components/page-header";
 import { ChartContainer } from "@/components/charts/chart-container";
@@ -8,6 +8,9 @@ import { ComparisonBarChart } from "@/components/charts/comparison-bar-chart";
 import { OverlapDisplay } from "@/components/comparison/overlap-display";
 import { TopNSelector } from "@/components/top-n-selector";
 import { EmptyState } from "@/components/empty-state";
+import { ArticleDrillDown } from "@/components/article-drill-down";
+import { useArticleDrillDown } from "@/hooks/use-drill-down";
+import { extractCountries } from "@/lib/data-processing";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Globe } from "lucide-react";
@@ -22,6 +25,16 @@ import {
 export default function ProgramasGeograficoPage() {
   const { programs, isReady } = usePrograms();
   const [topN, setTopN] = useState(20);
+  const allWorks = useMemo(() => programs.flatMap((p) => p.works), [programs]);
+  const countryFilter = useCallback(
+    (data: import("@/types/bibliometric").BibWork[], value: string) => {
+      const entries = extractCountries(data);
+      const indices = new Set(entries.filter((e) => e.país === value).map((e) => e.index));
+      return data.filter((_, i) => indices.has(i));
+    },
+    [],
+  );
+  const { handleDrill, drillDownProps } = useArticleDrillDown(allWorks, countryFilter);
 
   const countryOverlap = useMemo(
     () => (isReady ? computeCountryOverlap(programs) : null),
@@ -84,6 +97,7 @@ export default function ProgramasGeograficoPage() {
               height={Math.max(400, topN * 28)}
               layout="vertical"
               labelMaxLen={30}
+              onBarClick={(e) => handleDrill(String(e.name))}
             />
           </ChartContainer>
         </TabsContent>
@@ -117,6 +131,8 @@ export default function ProgramasGeograficoPage() {
           </ChartContainer>
         </TabsContent>
       </Tabs>
+
+      <ArticleDrillDown {...drillDownProps} />
     </div>
   );
 }

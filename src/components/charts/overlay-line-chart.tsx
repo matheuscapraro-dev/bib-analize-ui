@@ -27,6 +27,7 @@ interface OverlayLineChartProps {
   height?: number;
   showLegend?: boolean;
   yLabel?: string;
+  onDotClick?: (entry: Record<string, unknown>) => void;
 }
 
 export function OverlayLineChart({
@@ -36,6 +37,7 @@ export function OverlayLineChart({
   height = 350,
   showLegend = true,
   yLabel,
+  onDotClick,
 }: OverlayLineChartProps) {
   return (
     <ResponsiveContainer width="100%" height={height}>
@@ -57,7 +59,14 @@ export function OverlayLineChart({
             stroke={ds.color}
             strokeWidth={2}
             dot={{ r: 3, fill: ds.color }}
-            activeDot={{ r: 5 }}
+            activeDot={onDotClick ? {
+              r: 5,
+              style: { cursor: "pointer" },
+              onClick: (_e: unknown, payload: unknown) => {
+                const p = payload as { payload?: Record<string, unknown> };
+                if (p?.payload) onDotClick(p.payload);
+              },
+            } : { r: 5 }}
           />
         ))}
       </RechartsLineChart>
