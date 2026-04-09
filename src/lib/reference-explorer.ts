@@ -125,18 +125,32 @@ export async function searchSeedWorks(query: string): Promise<Partial<BibWork>[]
   if (!query.trim()) return [];
 
   const params = new URLSearchParams();
+  const q = query.trim();
 
   // Detect DOI-like input
-  const isDoi = /^10\.\d{4,}/.test(query.trim()) || query.trim().startsWith("https://doi.org/");
+  const isDoi = /^10\.\d{4,}/.test(q) || q.startsWith("https://doi.org/");
   if (isDoi) {
-    const cleanDoi = query.trim().startsWith("https://") ? query.trim() : `https://doi.org/${query.trim()}`;
+    const cleanDoi = q.startsWith("https://") ? q : `https://doi.org/${q}`;
     params.set("filter", `doi:${cleanDoi}`);
+    params.set("sort", "cited_by_count:desc");
   } else {
-    params.set("search", query);
+    // Use title.search for precise matching — OpenAlex's generic "search"
+    // does fulltext and returns many irrelevant hits.
+    // If query looks like an author name (short, 1-3 words, capitalized),
+    // search by author display name instead.
+    const wordCount = q.split(/\s+/).length;
+    const looksLikeAuthor = wordCount <= 3 && /^[A-Z]/.test(q) && !/[:.?]/.test(q);
+
+    if (looksLikeAuthor) {
+      params.set("filter", `authorships.author.display_name.search:${q}`);
+      params.set("sort", "cited_by_count:desc");
+    } else {
+      params.set("filter", `title.search:${q}`);
+      params.set("sort", "relevance_score:desc");
+    }
   }
 
   params.set("per_page", "10");
-  params.set("sort", "cited_by_count:desc");
   params.set("mailto", CONTACT_EMAIL);
 
   const resp = await fetch(`${OPENALEX_BASE}/works?${params}`);
