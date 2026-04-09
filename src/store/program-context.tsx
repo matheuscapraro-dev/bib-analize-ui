@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import type { BibWork, DataSource, JournalMetrics } from "@/types/bibliometric";
-import type { ProgramDataset } from "@/lib/comparison/types";
+import type { ProgramDataset, ProgramSearchMode } from "@/lib/comparison/types";
 import { DATASET_COLORS, MAX_DATASETS } from "@/lib/comparison/types";
 
 /* ---------- State ---------- */
@@ -40,6 +40,8 @@ type Action =
         affiliationSearch: string;
         institutionId: string;
         institutionName: string;
+        searchMode?: ProgramSearchMode;
+        authorIds?: string;
       };
     }
   | { type: "REMOVE_PROGRAM"; payload: string }
@@ -68,6 +70,8 @@ function reducer(state: ProgramState, action: Action): ProgramState {
         affiliationSearch: action.payload.affiliationSearch,
         institutionId: action.payload.institutionId,
         institutionName: action.payload.institutionName,
+        searchMode: action.payload.searchMode,
+        authorIds: action.payload.authorIds,
       };
       return { ...state, programs: [...state.programs, ds], error: null };
     }
@@ -106,6 +110,8 @@ interface ProgramContextValue extends ProgramState {
     affiliationSearch: string;
     institutionId: string;
     institutionName: string;
+    searchMode?: ProgramSearchMode;
+    authorIds?: string;
   }) => void;
   removeProgram: (id: string) => void;
   clearAll: () => void;
@@ -131,6 +137,8 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
       affiliationSearch: string;
       institutionId: string;
       institutionName: string;
+      searchMode?: ProgramSearchMode;
+      authorIds?: string;
     }) => dispatch({ type: "ADD_PROGRAM", payload: p }),
     [],
   );

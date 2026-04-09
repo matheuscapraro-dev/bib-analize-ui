@@ -32,18 +32,25 @@ function DataLoader({ children }: { children: React.ReactNode }) {
 
       // Restore programs
       for (const pw of data.programWorks ?? []) {
-        const meta = (data.programs as { id: string; name: string; affiliationSearch: string }[])
-          .find((p) => p.id === pw.id);
+        const meta = (data.programs as {
+          id: string;
+          name: string;
+          affiliationSearch: string;
+          searchMode?: string;
+          authorIds?: string;
+        }[]).find((p) => p.id === pw.id);
         if (!meta) continue;
         addProgram({
           id: pw.id,
           name: meta.name,
-          source: "openalex",
+          source: data.dataSource ?? "openalex",
           works: pw.works as BibWork[],
           programName: meta.name,
-          affiliationSearch: meta.affiliationSearch,
-          institutionId: data.institution.id,
-          institutionName: data.institution.display_name,
+          affiliationSearch: meta.affiliationSearch ?? "",
+          institutionId: data.institution?.id ?? "",
+          institutionName: data.institution?.display_name ?? "",
+          searchMode: (meta.searchMode as "affiliation" | "authorIds") ?? "affiliation",
+          authorIds: meta.authorIds ?? "",
         });
       }
 

@@ -111,6 +111,10 @@ export interface QualisJournalDetail {
   articleCounts: number[];
 }
 
+/* ── Program search mode ─────────────────────────────────── */
+
+export type ProgramSearchMode = "affiliation" | "authorIds";
+
 /* ── Program-specific dataset ────────────────────────────── */
 
 export interface ProgramDataset extends ComparisonDataset {
@@ -118,4 +122,6 @@ export interface ProgramDataset extends ComparisonDataset {
   affiliationSearch: string;
   institutionId: string;
   institutionName: string;
+  searchMode?: ProgramSearchMode;
+  authorIds?: string;
 }

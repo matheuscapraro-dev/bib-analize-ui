@@ -19,32 +19,49 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Award,
   BarChart3,
   BookOpen,
   Building2,
+  FileText,
   Globe,
   GraduationCap,
   Loader2,
   Plus,
   Search,
   Trash2,
+  Users,
   X,
 } from "lucide-react";
 
 type DataSource = "openalex" | "wos";
+type ProgramSearchMode = "affiliation" | "authorIds";
 
 interface ProgramEntry {
   id: string;
   name: string;
   affiliationSearch: string;
+  searchMode: ProgramSearchMode;
+  authorIds: string;
 }
 
 const MAX_PROGRAMS = 4;
 
 function generateId() {
   return `prog-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+/** Parse a free-text string of author IDs into a deduplicated array. */
+function parseAuthorIds(raw: string): string[] {
+  return [...new Set(
+    raw.split(/[\n,;\s]+/).map((s) => s.trim()).filter(Boolean),
+  )];
+}
+
+function createEmptyProgram(): ProgramEntry {
+  return { id: generateId(), name: "", affiliationSearch: "", searchMode: "affiliation", authorIds: "" };
 }
 
 export default function ProgramasPage() {
@@ -64,13 +81,13 @@ export default function ProgramasPage() {
 
   // Programs
   const [programs, setPrograms] = useState<ProgramEntry[]>([
-    { id: generateId(), name: "", affiliationSearch: "" },
-    { id: generateId(), name: "", affiliationSearch: "" },
+    createEmptyProgram(),
+    createEmptyProgram(),
   ]);
 
   // Search config
-  const [yearStart, setYearStart] = useState(2020);
-  const [yearEnd, setYearEnd] = useState(new Date().getFullYear());
+  const [yearStart, setYearStart] = useState("1960");
+  const [yearEnd, setYearEnd] = useState(String(new Date().getFullYear()));
 
   // Loading state
   const [loading, setLoading] = useState(false);
@@ -119,7 +136,7 @@ export default function ProgramasPage() {
 
   const addProgram = () => {
     if (programs.length >= MAX_PROGRAMS) return;
-    setPrograms((prev) => [...prev, { id: generateId(), name: "", affiliationSearch: "" }]);
+    setPrograms((prev) => [...prev, createEmptyProgram()]);
   };
 
   const removeProgram = (id: string) => {
@@ -127,21 +144,35 @@ export default function ProgramasPage() {
     setPrograms((prev) => prev.filter((p) => p.id !== id));
   };
 
-  const updateProgram = (id: string, field: keyof Omit<ProgramEntry, "id">, value: string) => {
+  const updateProgram = <K extends keyof Omit<ProgramEntry, "id">>(id: string, field: K, value: ProgramEntry[K]) => {
     setPrograms((prev) => prev.map((p) => (p.id === id ? { ...p, [field]: value } : p)));
   };
 
+  // Derived: whether institution selection is required
+  const needsInstitution = programs.some((p) => p.searchMode === "affiliation");
+
+  const isProgramValid = (p: ProgramEntry) => {
+    if (!p.name.trim()) return false;
+    if (p.searchMode === "authorIds") return parseAuthorIds(p.authorIds).length > 0;
+    return p.affiliationSearch.trim().length > 0;
+  };
+
   const handleSearch = useCallback(async () => {
-    if (!selectedInst) {
-      toast.warning("Selecione uma instituição.");
+    const validPrograms = programs.filter(isProgramValid);
+    const requiresInst = validPrograms.some((p) => p.searchMode === "affiliation");
+
+    if (requiresInst && !selectedInst) {
+      toast.warning("Selecione uma instituição para programas com busca por afiliação.");
       return;
     }
 
-    const validPrograms = programs.filter((p) => p.name.trim() && p.affiliationSearch.trim());
     if (validPrograms.length < 2) {
-      toast.warning("Defina pelo menos 2 programas com nome e texto de afiliação.");
+      toast.warning("Defina pelo menos 2 programas completos (nome + afiliação ou IDs).");
       return;
     }
+
+    const ys = Number(yearStart) || 1960;
+    const ye = Number(yearEnd) || new Date().getFullYear();
 
     setLoading(true);
     setProgress("Iniciando busca...");
@@ -152,6 +183,8 @@ export default function ProgramasPage() {
         id: string;
         name: string;
         affiliationSearch: string;
+        searchMode: ProgramSearchMode;
+        authorIds: string;
         works: BibWork[];
       }[] = [];
 
@@ -160,38 +193,49 @@ export default function ProgramasPage() {
         setProgress(`Buscando ${prog.name} (${i + 1}/${validPrograms.length})...`);
 
         let works: BibWork[];
+        const progressCb = (fetched: number, total: number) => {
+          setProgress(`${prog.name}: ${fetched}/${total} registros...`);
+        };
 
-        if (dataSource === "wos") {
+        if (prog.searchMode === "authorIds") {
+          // Always uses OpenAlex for author-ID mode
+          const oaParams: OpenAlexSearchParams = {
+            authorIds: prog.authorIds,
+            yearStart: ys,
+            yearEnd: ye,
+            ...(selectedInst ? { institutionId: selectedInst.id } : {}),
+            maxRecords: 2000,
+            sort: "cited_by_count:desc",
+          };
+          works = (await fetchOpenAlexWorks(oaParams, progressCb)) as BibWork[];
+        } else if (dataSource === "wos") {
           const wosParams: WosSearchParams = {
-            organization: selectedInst.display_name,
+            organization: selectedInst!.display_name,
             topic: prog.affiliationSearch,
-            yearStart,
-            yearEnd,
+            yearStart: ys,
+            yearEnd: ye,
             maxRecords: 2000,
             sortField: "TC+D",
           };
-          works = (await fetchWosWorks(wosParams, (fetched, total) => {
-            setProgress(`${prog.name}: ${fetched}/${total} registros...`);
-          })) as BibWork[];
+          works = (await fetchWosWorks(wosParams, progressCb)) as BibWork[];
         } else {
           const oaParams: OpenAlexSearchParams = {
-            institutionId: selectedInst.id,
+            institutionId: selectedInst!.id,
             rawAffiliation: prog.affiliationSearch,
-            yearStart,
-            yearEnd,
+            yearStart: ys,
+            yearEnd: ye,
             maxRecords: 2000,
             sort: "cited_by_count:desc",
-
           };
-          works = (await fetchOpenAlexWorks(oaParams, (fetched, total) => {
-            setProgress(`${prog.name}: ${fetched}/${total} registros...`);
-          })) as BibWork[];
+          works = (await fetchOpenAlexWorks(oaParams, progressCb)) as BibWork[];
         }
 
         programResults.push({
           id: prog.id,
           name: prog.name,
           affiliationSearch: prog.affiliationSearch,
+          searchMode: prog.searchMode,
+          authorIds: prog.authorIds,
           works,
         });
         allWorks.push(...works);
@@ -203,18 +247,22 @@ export default function ProgramasPage() {
       });
 
       const payload = {
-        institution: {
-          id: selectedInst.id,
-          display_name: selectedInst.display_name,
-          country_code: selectedInst.country_code,
-        },
+        institution: selectedInst
+          ? {
+              id: selectedInst.id,
+              display_name: selectedInst.display_name,
+              country_code: selectedInst.country_code,
+            }
+          : null,
         dataSource,
-        yearStart,
-        yearEnd,
+        yearStart: ys,
+        yearEnd: ye,
         programs: programResults.map((pr) => ({
           id: pr.id,
           name: pr.name,
           affiliationSearch: pr.affiliationSearch,
+          searchMode: pr.searchMode,
+          authorIds: pr.authorIds,
           worksCount: pr.works.length,
         })),
         programWorks: programResults.map((pr) => ({
@@ -309,6 +357,11 @@ export default function ProgramasPage() {
               </CardTitle>
               <CardDescription>
                 Busque e selecione a instituição (fonte: OpenAlex).
+                {!needsInstitution && (
+                  <span className="block mt-1 text-xs text-muted-foreground/70 italic">
+                    Opcional quando todos os programas usam IDs de professores.
+                  </span>
+                )}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -384,7 +437,7 @@ export default function ProgramasPage() {
                     min={1900}
                     max={new Date().getFullYear()}
                     value={yearStart}
-                    onChange={(e) => setYearStart(Number(e.target.value) || 2020)}
+                    onChange={(e) => setYearStart(e.target.value)}
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -394,7 +447,7 @@ export default function ProgramasPage() {
                     min={1900}
                     max={new Date().getFullYear()}
                     value={yearEnd}
-                    onChange={(e) => setYearEnd(Number(e.target.value) || new Date().getFullYear())}
+                    onChange={(e) => setYearEnd(e.target.value)}
                   />
                 </div>
               </div>
@@ -409,31 +462,34 @@ export default function ProgramasPage() {
                 Programas ({programs.length}/{MAX_PROGRAMS})
               </CardTitle>
               <CardDescription>
-                Defina os programas a comparar. O texto de afiliação é usado para filtrar obras
-                {dataSource === "openalex"
-                  ? " no OpenAlex (campo raw_affiliation_strings)."
-                  : " no Web of Science (campo TS)."}
+                Defina os programas a comparar. Para cada programa, escolha buscar por texto de
+                afiliação ou por IDs de professores (OpenAlex / ORCID).
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {programs.map((prog, idx) => (
-                <div key={prog.id} className="space-y-3 p-4 rounded-lg border bg-muted/30">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-muted-foreground">
-                      Programa {idx + 1}
-                    </span>
-                    {programs.length > 2 && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-6"
-                        onClick={() => removeProgram(prog.id)}
-                      >
-                        <Trash2 className="size-3.5 text-destructive" />
-                      </Button>
-                    )}
-                  </div>
-                  <div className="grid gap-3 sm:grid-cols-2">
+              {programs.map((prog, idx) => {
+                const idCount = parseAuthorIds(prog.authorIds).length;
+
+                return (
+                  <div key={prog.id} className="space-y-3 p-4 rounded-lg border bg-muted/30">
+                    {/* Header */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-semibold text-muted-foreground">
+                        Programa {idx + 1}
+                      </span>
+                      {programs.length > 2 && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-6"
+                          onClick={() => removeProgram(prog.id)}
+                        >
+                          <Trash2 className="size-3.5 text-destructive" />
+                        </Button>
+                      )}
+                    </div>
+
+                    {/* Name */}
                     <div className="space-y-1.5">
                       <Label>Nome do programa</Label>
                       <Input
@@ -442,20 +498,71 @@ export default function ProgramasPage() {
                         onChange={(e) => updateProgram(prog.id, "name", e.target.value)}
                       />
                     </div>
+
+                    {/* Search mode toggle */}
                     <div className="space-y-1.5">
-                      <Label>Texto de afiliação</Label>
-                      <Input
-                        placeholder="ex: Computação Aplicada, Engenharia Biomédica..."
-                        value={prog.affiliationSearch}
-                        onChange={(e) => updateProgram(prog.id, "affiliationSearch", e.target.value)}
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Trecho que aparece na afiliação dos autores.
-                      </p>
+                      <Label className="text-xs text-muted-foreground">Modo de busca</Label>
+                      <Tabs
+                        value={prog.searchMode}
+                        onValueChange={(v) => updateProgram(prog.id, "searchMode", v as ProgramSearchMode)}
+                      >
+                        <TabsList className="h-8 w-full grid grid-cols-2">
+                          <TabsTrigger value="affiliation" className="gap-1.5 text-xs h-7">
+                            <FileText className="size-3" />
+                            Afiliação
+                          </TabsTrigger>
+                          <TabsTrigger value="authorIds" className="gap-1.5 text-xs h-7">
+                            <Users className="size-3" />
+                            IDs de Professores
+                          </TabsTrigger>
+                        </TabsList>
+                      </Tabs>
                     </div>
+
+                    {/* Conditional search field */}
+                    {prog.searchMode === "affiliation" ? (
+                      <div className="space-y-1.5">
+                        <Label>Texto de afiliação</Label>
+                        <Input
+                          placeholder="ex: Computação Aplicada, Engenharia Biomédica..."
+                          value={prog.affiliationSearch}
+                          onChange={(e) => updateProgram(prog.id, "affiliationSearch", e.target.value)}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Trecho que aparece na afiliação dos autores.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-1.5">
+                        <Label>IDs dos Professores</Label>
+                        <Textarea
+                          rows={4}
+                          className="font-mono text-sm"
+                          placeholder={"Cole IDs OpenAlex (ex: A5023888391)\nou ORCIDs (ex: 0000-0001-2345-6789),\num por linha."}
+                          value={prog.authorIds}
+                          onChange={(e) => updateProgram(prog.id, "authorIds", e.target.value)}
+                        />
+                        <div className="flex items-center gap-2">
+                          <Badge
+                            variant={idCount > 0 ? "default" : "secondary"}
+                            className="text-xs"
+                          >
+                            {idCount} {idCount === 1 ? "ID" : "IDs"} identificado{idCount !== 1 ? "s" : ""}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">
+                            Separe por linha, vírgula ou ponto-e-vírgula.
+                          </span>
+                        </div>
+                        {dataSource === "wos" && (
+                          <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1 mt-1">
+                            ⚠ Web of Science não suporta busca por ID. Será usado OpenAlex para este programa.
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
 
               {programs.length < MAX_PROGRAMS && (
                 <Button variant="outline" className="w-full gap-2" onClick={addProgram}>
@@ -472,7 +579,11 @@ export default function ProgramasPage() {
           <Button
             size="lg"
             className="w-full gap-2"
-            disabled={loading || !selectedInst || programs.filter((p) => p.name.trim() && p.affiliationSearch.trim()).length < 2}
+            disabled={
+              loading ||
+              (needsInstitution && !selectedInst) ||
+              programs.filter(isProgramValid).length < 2
+            }
             onClick={handleSearch}
           >
             {loading ? (
