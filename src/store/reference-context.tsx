@@ -54,6 +54,7 @@ type Action =
   | { type: "SET_NODE_LOADING"; id: string; loading: boolean }
   | { type: "ADD_REFS"; parentId: string; works: Partial<BibWork>[]; level: number }
   | { type: "MARK_EXPANDED"; id: string }
+  | { type: "INIT_SEEDS"; works: Partial<BibWork>[]; maxRefs: number }
   | { type: "RESET" };
 
 const initialState: RefState = {
@@ -159,6 +160,18 @@ function reducer(state: RefState, action: Action): RefState {
       return { ...state, nodes };
     }
 
+    case "INIT_SEEDS": {
+      const nodes = new Map<string, RefNode>();
+      const seedIds: string[] = [];
+      for (const w of action.works) {
+        const id = String(w.UT ?? "");
+        if (!id || nodes.has(id)) continue;
+        nodes.set(id, { id, work: w, level: 0, expanded: false, loading: false });
+        seedIds.push(id);
+      }
+      return { ...initialState, nodes, seeds: seedIds, maxRefsPerNode: action.maxRefs };
+    }
+
     case "RESET":
       return { ...initialState, maxRefsPerNode: state.maxRefsPerNode };
 
@@ -174,6 +187,7 @@ interface RefContextValue extends RefState {
   search: (query: string) => Promise<void>;
   addSeed: (work: Partial<BibWork>) => void;
   removeSeed: (id: string) => void;
+  initSeeds: (works: Partial<BibWork>[], maxRefs: number) => void;
   explore: () => Promise<void>;
   expandNode: (id: string) => Promise<void>;
   setMaxRefs: (n: number) => void;
@@ -207,6 +221,10 @@ export function RefProvider({ children }: { children: ReactNode }) {
 
   const removeSeed = useCallback((id: string) => {
     dispatch({ type: "REMOVE_SEED", id });
+  }, []);
+
+  const initSeeds = useCallback((works: Partial<BibWork>[], maxRefs: number) => {
+    dispatch({ type: "INIT_SEEDS", works, maxRefs });
   }, []);
 
   const expandNode = useCallback(async (id: string) => {
@@ -260,6 +278,7 @@ export function RefProvider({ children }: { children: ReactNode }) {
         search,
         addSeed,
         removeSeed,
+        initSeeds,
         explore,
         expandNode,
         setMaxRefs,

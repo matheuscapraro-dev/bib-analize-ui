@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useBib } from "@/store/bibliometric-context";
 import { processUpload } from "@/lib/parser";
 import { fetchOpenAlexWorks, getOpenAlexCount, type OpenAlexSearchParams } from "@/lib/openalex-api";
+import { searchSeedWorks } from "@/lib/reference-explorer";
 import type { BibWork } from "@/types/bibliometric";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,7 +20,7 @@ import { Separator } from "@/components/ui/separator";
 import {
   BarChart3, Upload, Search, FileText, Globe,
   Loader2, AlertCircle, BookOpen, Bookmark, GitCompareArrows,
-  GraduationCap,
+  GraduationCap, GitBranch, Plus, X,
 } from "lucide-react";
 import { SavedAnalysesList } from "@/components/saved-analyses-list";
 import { TopicResolver } from "@/components/topic-resolver";
@@ -73,6 +74,16 @@ export default function HomePage() {
   });
   const [oaCount, setOaCount] = useState<number | null>(null);
   const [oaProgress, setOaProgress] = useState<{ fetched: number; total: number } | null>(null);
+
+  // Reference explorer state
+  const [refInput, setRefInput] = useState("");
+  const [refResults, setRefResults] = useState<Partial<BibWork>[]>([]);
+  const [refSearching, setRefSearching] = useState(false);
+  const [refSeeds, setRefSeeds] = useState<Partial<BibWork>[]>([]);
+  const [refMaxRefs, setRefMaxRefs] = useState(15);
+  const [showRefResults, setShowRefResults] = useState(false);
+  const refDebounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const refBoxRef = useRef<HTMLDivElement>(null);
 
   // File upload handlers
   const handleFiles = useCallback((files: FileList | File[]) => {
@@ -160,6 +171,62 @@ export default function HomePage() {
     }
   }, [oaParams, setData, setLoading, setError, router]);
 
+  // Reference explorer handlers
+  const handleRefInputChange = useCallback((val: string) => {
+    setRefInput(val);
+    clearTimeout(refDebounceRef.current);
+    if (!val.trim()) {
+      setRefResults([]);
+      setShowRefResults(false);
+      return;
+    }
+    refDebounceRef.current = setTimeout(async () => {
+      setRefSearching(true);
+      try {
+        const results = await searchSeedWorks(val);
+        setRefResults(results);
+        setShowRefResults(true);
+      } catch {
+        setRefResults([]);
+      } finally {
+        setRefSearching(false);
+      }
+    }, 400);
+  }, []);
+
+  const handleAddRefSeed = useCallback((work: Partial<BibWork>) => {
+    const id = String(work.UT ?? "");
+    if (refSeeds.some((s) => String(s.UT ?? "") === id)) return;
+    setRefSeeds((prev) => [...prev, work]);
+    setRefInput("");
+    setRefResults([]);
+    setShowRefResults(false);
+  }, [refSeeds]);
+
+  const handleRemoveRefSeed = useCallback((id: string) => {
+    setRefSeeds((prev) => prev.filter((s) => String(s.UT ?? "") !== id));
+  }, []);
+
+  const handleExploreRefs = useCallback(() => {
+    if (!refSeeds.length) return;
+    try {
+      sessionStorage.setItem("ref-seeds", JSON.stringify(refSeeds));
+      sessionStorage.setItem("ref-max-refs", String(refMaxRefs));
+    } catch { /* quota exceeded — navigate anyway */ }
+    router.push("/referencias");
+  }, [refSeeds, refMaxRefs, router]);
+
+  // Close ref dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (refBoxRef.current && !refBoxRef.current.contains(e.target as Node)) {
+        setShowRefResults(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
@@ -188,7 +255,7 @@ export default function HomePage() {
         </div>
 
         <Tabs defaultValue="upload" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="upload" className="gap-2">
               <Upload className="size-4" />
               Upload
@@ -196,6 +263,10 @@ export default function HomePage() {
             <TabsTrigger value="openalex" className="gap-2">
               <Globe className="size-4" />
               OpenAlex
+            </TabsTrigger>
+            <TabsTrigger value="referencias" className="gap-2">
+              <GitBranch className="size-4" />
+              Referências
             </TabsTrigger>
             <TabsTrigger value="saved" className="gap-2">
               <Bookmark className="size-4" />
@@ -493,6 +564,122 @@ export default function HomePage() {
                     </span>
                   </div>
                 )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Referências Tab */}
+          <TabsContent value="referencias">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <GitBranch className="size-5" />
+                  Explorador de Referências
+                </CardTitle>
+                <CardDescription>
+                  Busque artigos, adicione-os como sementes e explore suas referências em até 2 níveis de profundidade.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Search box */}
+                <div ref={refBoxRef} className="relative">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar por título, DOI ou autor..."
+                      value={refInput}
+                      onChange={(e) => handleRefInputChange(e.target.value)}
+                      onFocus={() => refResults.length > 0 && setShowRefResults(true)}
+                      className="pl-10"
+                    />
+                    {refSearching && (
+                      <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 size-4 animate-spin text-muted-foreground" />
+                    )}
+                  </div>
+
+                  {/* Search results dropdown */}
+                  {showRefResults && refResults.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 z-50 mt-1 border rounded-lg bg-popover shadow-lg max-h-80 overflow-auto">
+                      {refResults.map((work) => {
+                        const id = String(work.UT ?? "");
+                        const alreadyAdded = refSeeds.some((s) => String(s.UT ?? "") === id);
+                        return (
+                          <div
+                            key={id}
+                            className="flex items-start gap-3 px-4 py-3 hover:bg-muted/50 border-b last:border-b-0 transition-colors"
+                          >
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium leading-tight truncate">
+                                {String(work.TI ?? "Sem título")}
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                                {String(work.AU ?? "").split(";").slice(0, 3).join("; ")}
+                                {(String(work.AU ?? "").split(";").length > 3) ? " et al." : ""}
+                              </p>
+                              <div className="flex gap-2 mt-1">
+                                {work.PY ? <span className="text-xs text-muted-foreground">{work.PY}</span> : null}
+                                {work.SO ? <span className="text-xs text-muted-foreground truncate max-w-40">{String(work.SO)}</span> : null}
+                                {work.TC != null && <span className="text-xs text-muted-foreground">{work.TC} cit.</span>}
+                              </div>
+                            </div>
+                            <Button
+                              variant={alreadyAdded ? "secondary" : "outline"}
+                              size="sm"
+                              disabled={alreadyAdded}
+                              onClick={() => handleAddRefSeed(work)}
+                              className="shrink-0"
+                            >
+                              {alreadyAdded ? "Adicionado" : <><Plus className="size-3.5 mr-1" />Adicionar</>}
+                            </Button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Seed chips */}
+                {refSeeds.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {refSeeds.map((s) => {
+                      const id = String(s.UT ?? "");
+                      return (
+                        <Badge key={id} variant="secondary" className="max-w-72 gap-1 pl-2.5 pr-1 py-1">
+                          <span className="size-2 rounded-full bg-emerald-500 shrink-0" />
+                          <span className="truncate text-xs">{String(s.TI ?? "").slice(0, 50)}</span>
+                          <button className="ml-1 rounded-full hover:bg-muted p-0.5" onClick={() => handleRemoveRefSeed(id)}>
+                            <X className="size-3" />
+                          </button>
+                        </Badge>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <Separator />
+
+                {/* Options */}
+                <div className="flex items-center gap-4 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <Label className="whitespace-nowrap">Máx. referências por nó:</Label>
+                    <Select value={String(refMaxRefs)} onValueChange={(v) => setRefMaxRefs(Number(v))}>
+                      <SelectTrigger className="w-20 h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="5">5</SelectItem>
+                        <SelectItem value="10">10</SelectItem>
+                        <SelectItem value="15">15</SelectItem>
+                        <SelectItem value="20">20</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <Button onClick={handleExploreRefs} disabled={refSeeds.length === 0} className="w-full gap-2">
+                  <GitBranch className="size-4" />
+                  Explorar Referências ({refSeeds.length} {refSeeds.length === 1 ? "artigo" : "artigos"})
+                </Button>
               </CardContent>
             </Card>
           </TabsContent>

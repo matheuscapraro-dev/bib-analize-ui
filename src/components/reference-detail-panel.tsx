@@ -4,7 +4,7 @@ import { ExternalLink, Expand, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import type { RefNode } from "@/store/reference-context";
 
 interface ReferenceDetailPanelProps {
@@ -39,7 +39,7 @@ export function ReferenceDetailPanel({ node, open, onClose, onExpand }: Referenc
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
       <SheetContent side="right" className="w-[420px] sm:w-[480px] p-0">
-        <SheetHeader className="px-6 pt-6 pb-4 border-b">
+        <div className="px-6 pt-6 pb-4 border-b">
           <div className="flex items-start justify-between gap-2">
             <SheetTitle className="text-base font-semibold leading-tight pr-8">
               {String(work.TI ?? "Sem título")}
@@ -55,7 +55,7 @@ export function ReferenceDetailPanel({ node, open, onClose, onExpand }: Referenc
             {work.PY ? <Badge variant="secondary">{work.PY}</Badge> : null}
             {work.TC != null && <Badge variant="secondary">{work.TC} citações</Badge>}
           </div>
-        </SheetHeader>
+        </div>
 
         <ScrollArea className="flex-1 h-[calc(100vh-14rem)]">
           <div className="px-6 py-4 space-y-4">
