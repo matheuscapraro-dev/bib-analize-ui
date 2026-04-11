@@ -3,13 +3,14 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
-  GitBranch, Network, TreePine,
+  GitBranch, Network, TreePine, Trophy,
   Loader2, RotateCcw, ArrowLeft,
 } from "lucide-react";
 import { RefProvider, useRef_ } from "@/store/reference-context";
 import { ReferenceNetwork } from "@/components/charts/reference-network";
 import { ReferenceTree } from "@/components/charts/reference-tree";
 import { ReferenceDetailPanel } from "@/components/reference-detail-panel";
+import { ReferenceImportance } from "@/components/charts/reference-importance";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -35,6 +36,7 @@ function ReferenceExplorerContent() {
 
   const graphRef = useChartRef();
   const treeRef = useChartRef();
+  const importanceRef = useChartRef();
   const [initialized, setInitialized] = useState(false);
 
   // Load seeds from sessionStorage on mount and auto-explore
@@ -169,6 +171,10 @@ function ReferenceExplorerContent() {
                 <TreePine className="size-3.5" />
                 Árvore Hierárquica
               </TabsTrigger>
+              <TabsTrigger value="importance" className="gap-1.5">
+                <Trophy className="size-3.5" />
+                Referências-Chave
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="graph" className="mt-4">
@@ -203,6 +209,21 @@ function ReferenceExplorerContent() {
                   onNodeClick={handleNodeClick}
                   onExpand={handleExpandFromPanel}
                   selectedNodeId={selectedNodeId}
+                />
+              </ChartContainer>
+            </TabsContent>
+
+            <TabsContent value="importance" className="mt-4">
+              <ChartContainer
+                ref={importanceRef}
+                title="Referências-Chave"
+                description="Ranking das referências mais importantes com base em compartilhamento (in-degree) e citações globais."
+                actions={<ChartExportButton chartRef={importanceRef} fileName="reference-importance" />}
+              >
+                <ReferenceImportance
+                  nodes={nodes}
+                  edges={edges}
+                  onNodeClick={handleNodeClick}
                 />
               </ChartContainer>
             </TabsContent>
