@@ -19,6 +19,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { BrandLogo } from "@/components/brand-logo";
+import { BRAND } from "@/lib/branding";
 
 const NAV_ITEMS = [
   { href: "/programas/resultados", label: "Visão Geral", icon: LayoutDashboard },
@@ -47,8 +49,8 @@ export function ProgramSidebar({ className }: ProgramSidebarProps) {
     <aside className={cn("flex flex-col w-60 shrink-0 border-r bg-sidebar text-sidebar-foreground", className)}>
       <div className="flex h-14 items-center border-b px-4">
         <Link href="/" className="flex items-center gap-2 font-semibold">
-          <BarChart3 className="size-5 text-sidebar-primary" />
-          <span>BibAnalize</span>
+          <BrandLogo size="sm" className="text-sidebar-primary" />
+          <span>{BRAND.name}</span>
         </Link>
       </div>
       <div className="px-4 py-2 border-b">

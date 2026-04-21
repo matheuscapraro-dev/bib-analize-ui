@@ -6,6 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Lock } from "lucide-react";
+import { BRAND } from "@/lib/branding";
+import { BrandLogo } from "@/components/brand-logo";
 
 function LoginForm() {
   const router = useRouter();
@@ -44,9 +46,9 @@ function LoginForm() {
     <Card className="w-full max-w-sm">
       <CardHeader className="text-center">
         <div className="mx-auto mb-2 flex size-12 items-center justify-center rounded-full bg-primary/10">
-          <Lock className="size-6 text-primary" />
+          <BrandLogo size="sm" className="text-primary" />
         </div>
-        <CardTitle className="text-xl">BibAnalize</CardTitle>
+        <CardTitle className="text-xl">{BRAND.name}</CardTitle>
         <CardDescription>Digite a senha para acessar a aplicação</CardDescription>
       </CardHeader>
       <CardContent>

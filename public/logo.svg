@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor">
+  <!--
+    Huginn & Muninn — Two ravens of Odin
+    Elaborated logo with runic elements (Ansuz ᚨ)
+  -->
+  <defs>
+    <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="currentColor" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="currentColor" stop-opacity="1"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Ansuz rune ᚨ (Odin's rune) — centered behind the ravens -->
+  <g opacity="0.12">
+    <path d="M256 60 L256 452 M256 160 L296 120 M256 240 L296 200" stroke="currentColor" stroke-width="18" fill="none" stroke-linecap="round"/>
+  </g>
+
+  <!-- Left raven — Huginn (Mind) facing right -->
+  <g transform="translate(80, 130)">
+    <!-- Body -->
+    <path d="M140 200 C140 260, 100 300, 60 310 C40 316, 20 310, 10 300
+             C-4 286, 4 260, 20 240 L60 190 C70 176, 60 160, 50 150
+             C36 134, 30 110, 40 90 C50 70, 70 56, 90 54
+             C110 52, 126 60, 136 76 C146 92, 148 114, 140 130
+             L130 160 C126 170, 130 182, 140 200 Z"
+          fill="url(#g1)"/>
+    <!-- Head -->
+    <ellipse cx="100" cy="68" rx="40" ry="32" fill="currentColor"/>
+    <!-- Eye -->
+    <circle cx="112" cy="62" r="6" fill="var(--background, #fff)"/>
+    <circle cx="114" cy="61" r="2.5" fill="currentColor"/>
+    <!-- Beak -->
+    <path d="M138 64 L172 58 L164 68 L138 72 Z" fill="currentColor"/>
+    <!-- Wing detail -->
+    <path d="M60 180 C40 200, 20 230, 10 260" stroke="var(--background, #fff)" stroke-width="2" fill="none" opacity="0.3"/>
+    <path d="M70 170 C50 195, 30 225, 20 250" stroke="var(--background, #fff)" stroke-width="2" fill="none" opacity="0.2"/>
+    <!-- Tail feathers -->
+    <path d="M20 290 L-10 330 L0 290 L-20 340 L10 300 L-6 350 L20 306"
+          fill="currentColor" opacity="0.85"/>
+    <!-- Feet -->
+    <path d="M90 308 L80 340 L70 330 M80 340 L82 332 M80 340 L90 330"
+          stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round"/>
+  </g>
+
+  <!-- Right raven — Muninn (Memory) facing left (mirrored) -->
+  <g transform="translate(432, 130) scale(-1,1)">
+    <!-- Body -->
+    <path d="M140 200 C140 260, 100 300, 60 310 C40 316, 20 310, 10 300
+             C-4 286, 4 260, 20 240 L60 190 C70 176, 60 160, 50 150
+             C36 134, 30 110, 40 90 C50 70, 70 56, 90 54
+             C110 52, 126 60, 136 76 C146 92, 148 114, 140 130
+             L130 160 C126 170, 130 182, 140 200 Z"
+          fill="url(#g1)"/>
+    <!-- Head -->
+    <ellipse cx="100" cy="68" rx="40" ry="32" fill="currentColor"/>
+    <!-- Eye -->
+    <circle cx="112" cy="62" r="6" fill="var(--background, #fff)"/>
+    <circle cx="114" cy="61" r="2.5" fill="currentColor"/>
+    <!-- Beak -->
+    <path d="M138 64 L172 58 L164 68 L138 72 Z" fill="currentColor"/>
+    <!-- Wing detail -->
+    <path d="M60 180 C40 200, 20 230, 10 260" stroke="var(--background, #fff)" stroke-width="2" fill="none" opacity="0.3"/>
+    <path d="M70 170 C50 195, 30 225, 20 250" stroke="var(--background, #fff)" stroke-width="2" fill="none" opacity="0.2"/>
+    <!-- Tail feathers -->
+    <path d="M20 290 L-10 330 L0 290 L-20 340 L10 300 L-6 350 L20 306"
+          fill="currentColor" opacity="0.85"/>
+    <!-- Feet -->
+    <path d="M90 308 L80 340 L70 330 M80 340 L82 332 M80 340 L90 330"
+          stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round"/>
+  </g>
+
+  <!-- Small runic accents flanking bottom -->
+  <g opacity="0.18" stroke="currentColor" stroke-width="4" fill="none" stroke-linecap="round">
+    <!-- Left rune marks -->
+    <line x1="130" y1="440" x2="130" y2="470"/>
+    <line x1="130" y1="448" x2="142" y2="440"/>
+    <!-- Right rune marks -->
+    <line x1="382" y1="440" x2="382" y2="470"/>
+    <line x1="382" y1="448" x2="370" y2="440"/>
+  </g>
+
+  <!-- Circular arc connecting the ravens — Midgard flight path -->
+  <path d="M160 180 Q256 100 352 180" stroke="currentColor" stroke-width="2" fill="none" opacity="0.15" stroke-dasharray="6 4"/>
+</svg>

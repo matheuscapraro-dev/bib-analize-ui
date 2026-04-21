@@ -8,25 +8,22 @@ const WOS_API_BASE = "https://api.clarivate.com/apis/wos-starter/v1";
  * This route forwards the request server-side and returns the JSON response.
  *
  * The API key is read from the server-side environment variable WOS_API_KEY.
- * A client-side ?apiKey param is still accepted as fallback for backward compat.
  */
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
 
-  const apiKey = process.env.WOS_API_KEY || searchParams.get("apiKey");
+  const apiKey = process.env.WOS_API_KEY;
   if (!apiKey) {
     return NextResponse.json(
-      { error: "WOS_API_KEY não configurada no servidor e nenhuma apiKey fornecida." },
+      { error: "WOS_API_KEY não configurada no servidor." },
       { status: 500 },
     );
   }
 
-  // Build upstream URL with all params except apiKey
+  // Build upstream URL with all params
   const upstream = new URL(`${WOS_API_BASE}/documents`);
   for (const [key, value] of searchParams.entries()) {
-    if (key !== "apiKey") {
-      upstream.searchParams.set(key, value);
-    }
+    upstream.searchParams.set(key, value);
   }
 
   try {

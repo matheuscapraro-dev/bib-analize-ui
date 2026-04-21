@@ -12,8 +12,6 @@ interface TopicResolverProps {
   topic: string;
   topicIds: string[];
   topicFilterMode: "search" | "topics";
-  email?: string;
-  apiKey?: string;
   onTopicChange: (topic: string) => void;
   onTopicIdsChange: (ids: string[]) => void;
   onModeChange: (mode: "search" | "topics") => void;
@@ -23,8 +21,6 @@ export function TopicResolver({
   topic,
   topicIds,
   topicFilterMode,
-  email,
-  apiKey,
   onTopicChange,
   onTopicIdsChange,
   onModeChange,
@@ -55,14 +51,14 @@ export function TopicResolver({
       }
       setSearching(true);
       try {
-        const results = await searchTopics(query, { email, apiKey });
+        const results = await searchTopics(query);
         setSuggestions(results);
         setShowSuggestions(true);
       } finally {
         setSearching(false);
       }
     },
-    [email, apiKey],
+    [],
   );
 
   const handleInputChange = useCallback(

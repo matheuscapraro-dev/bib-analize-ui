@@ -24,6 +24,8 @@ import {
 } from "lucide-react";
 import { SavedAnalysesList } from "@/components/saved-analyses-list";
 import { TopicResolver } from "@/components/topic-resolver";
+import { BrandLogo } from "@/components/brand-logo";
+import { BRAND } from "@/lib/branding";
 
 const SORT_OPTIONS = [
   { value: "relevance_score:desc", label: "Relevância" },
@@ -52,7 +54,6 @@ export default function HomePage() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
   // OpenAlex state
-  const [oaAuthMode, setOaAuthMode] = useState<"email" | "apikey">("email");
   const [oaParams, setOaParams] = useState<OpenAlexSearchParams>({
     topic: "",
     topicIds: [],
@@ -69,8 +70,6 @@ export default function HomePage() {
     hasAbstract: false,
     sort: "relevance_score:desc",
     maxRecords: 1000,
-    email: "",
-    apiKey: "",
   });
   const [oaCount, setOaCount] = useState<number | null>(null);
   const [oaProgress, setOaProgress] = useState<{ fetched: number; total: number } | null>(null);
@@ -233,14 +232,14 @@ export default function HomePage() {
       <header className="border-b bg-card">
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
           <div className="flex items-center gap-3">
-            <BarChart3 className="size-7 text-primary" />
+            <BrandLogo size="md" className="text-primary" />
             <div>
-              <h1 className="text-xl font-bold tracking-tight">BibAnalize</h1>
-              <p className="text-xs text-muted-foreground">Análise Bibliométrica</p>
+              <h1 className="text-xl font-bold tracking-tight">{BRAND.name}</h1>
+              <p className="text-xs text-muted-foreground">{BRAND.tagline}</p>
             </div>
           </div>
           <Badge variant="outline" className="text-xs">
-            v2.0
+            {BRAND.version}
           </Badge>
         </div>
       </header>
@@ -353,8 +352,6 @@ export default function HomePage() {
                     topic={oaParams.topic ?? ""}
                     topicIds={oaParams.topicIds ?? []}
                     topicFilterMode={oaParams.topicFilterMode ?? "topics"}
-                    email={oaParams.email}
-                    apiKey={oaParams.apiKey}
                     onTopicChange={(v) => setOaParams((p) => ({ ...p, topic: v }))}
                     onTopicIdsChange={(ids) => setOaParams((p) => ({ ...p, topicIds: ids }))}
                     onModeChange={(m) => setOaParams((p) => ({ ...p, topicFilterMode: m }))}
@@ -498,48 +495,6 @@ export default function HomePage() {
                     />
                     Apenas com resumo
                   </label>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label>Autenticação OpenAlex</Label>
-                  <div className="flex gap-2 mb-2">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant={oaAuthMode === "email" ? "default" : "outline"}
-                      onClick={() => { setOaAuthMode("email"); setOaParams((p) => ({ ...p, apiKey: "" })); }}
-                    >
-                      E-mail (polite pool)
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant={oaAuthMode === "apikey" ? "default" : "outline"}
-                      onClick={() => { setOaAuthMode("apikey"); setOaParams((p) => ({ ...p, email: "" })); }}
-                    >
-                      API Key (premium)
-                    </Button>
-                  </div>
-                  {oaAuthMode === "email" ? (
-                    <Input
-                      type="email"
-                      placeholder="seu@email.com"
-                      value={oaParams.email ?? ""}
-                      onChange={(e) => setOaParams((p) => ({ ...p, email: e.target.value }))}
-                    />
-                  ) : (
-                    <Input
-                      type="password"
-                      placeholder="Insira sua API Key"
-                      value={oaParams.apiKey ?? ""}
-                      onChange={(e) => setOaParams((p) => ({ ...p, apiKey: e.target.value }))}
-                    />
-                  )}
-                  <p className="text-xs text-muted-foreground">
-                    {oaAuthMode === "email"
-                      ? "O e-mail é utilizado para acesso ao polite pool (~5 req/s). Campo opcional."
-                      : "A API Key permite acesso premium (~10 req/s). Disponível gratuitamente em openalex.org."}
-                  </p>
                 </div>
 
                 <div className="flex gap-2">
@@ -736,7 +691,7 @@ export default function HomePage() {
       {/* Footer */}
       <footer className="border-t py-6">
         <div className="container mx-auto text-center text-xs text-muted-foreground px-4 space-y-1">
-          <p className="font-medium">BibAnalize &mdash; Ferramenta de Análise Bibliométrica</p>
+          <p className="font-medium">{BRAND.name} &mdash; Ferramenta de {BRAND.tagline}</p>
           <p>Desenvolvido por <span className="text-foreground/80">Matheus A. Capraro</span> &bull; Orientação: <span className="text-foreground/80">Prof.ª Dr.ª Ana Cristina K. Vendramin</span></p>
           <p>Programa de Pós-Graduação em Computação Aplicada (PPGCA) &bull; UTFPR</p>
         </div>

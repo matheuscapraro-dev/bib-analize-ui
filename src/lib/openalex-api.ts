@@ -7,10 +7,8 @@ const OPENALEX_DIRECT = "https://api.openalex.org";
 const OPENALEX_BASE =
   typeof window !== "undefined" ? "/api/openalex" : OPENALEX_DIRECT;
 const PER_PAGE = 100;
-const CONTACT_EMAIL = "bibliometrics@analysis.app";
 
 /* ── Rate-limit & concurrency constants ──────────────────── */
-const DELAY_WITH_KEY = 105;      // ms — API key allows ~10 req/s
 const DELAY_WITHOUT_KEY = 150;   // ms — polite pool ~7 req/s
 const PARALLEL_CONCURRENCY = 3;  // max concurrent page fetches
 /** OpenAlex page-based pagination hard limit (page * per_page ≤ 10 000) */
@@ -250,8 +248,6 @@ export interface OpenAlexSearchParams {
   indexedIn?: string;
   sort?: string;
   maxRecords?: number;
-  email?: string;
-  apiKey?: string;
 }
 
 function buildFilters(params: OpenAlexSearchParams): { search: string | null; filter: string | null } {
@@ -324,11 +320,6 @@ export async function getOpenAlexCount(params: OpenAlexSearchParams): Promise<nu
 
   const urlParams = new URLSearchParams();
   urlParams.set("per_page", "1");
-  if (params.apiKey) {
-    urlParams.set("api_key", params.apiKey);
-  } else {
-    urlParams.set("mailto", params.email || CONTACT_EMAIL);
-  }
   if (search) urlParams.set("search", search);
   if (filter) urlParams.set("filter", filter);
 
@@ -350,7 +341,7 @@ export async function fetchOpenAlexWorks(
   const { search, filter } = buildFilters(params);
   if (!search && !filter) throw new Error("Nenhum filtro ou busca definido.");
   const maxRecords = params.maxRecords ?? 1000;
-  const delay = params.apiKey ? DELAY_WITH_KEY : DELAY_WITHOUT_KEY;
+  const delay = DELAY_WITHOUT_KEY;
 
   // relevance_score requires a search query — fall back to cited_by_count when no search
   let sort = params.sort ?? "relevance_score:desc";
@@ -362,11 +353,6 @@ export async function fetchOpenAlexWorks(
   // ── Build base URL params (shared by all page fetches) ──
   const baseParams = new URLSearchParams();
   baseParams.set("per_page", String(PER_PAGE));
-  if (params.apiKey) {
-    baseParams.set("api_key", params.apiKey);
-  } else {
-    baseParams.set("mailto", params.email || CONTACT_EMAIL);
-  }
   if (search) baseParams.set("search", search);
   if (filter) baseParams.set("filter", filter);
   if (sort) baseParams.set("sort", sort);
@@ -486,7 +472,6 @@ export async function fetchOpenAlexWorks(
 /** Search the OpenAlex /topics endpoint and return matching topics. */
 export async function searchTopics(
   query: string,
-  params?: Pick<OpenAlexSearchParams, "email" | "apiKey">,
 ): Promise<OpenAlexTopic[]> {
   if (!query.trim()) return [];
 
@@ -498,11 +483,6 @@ export async function searchTopics(
   const urlParams = new URLSearchParams();
   urlParams.set("search", query);
   urlParams.set("per_page", "10");
-  if (params?.apiKey) {
-    urlParams.set("api_key", params.apiKey);
-  } else {
-    urlParams.set("mailto", params?.email || CONTACT_EMAIL);
-  }
 
   const resp = await fetch(`${OPENALEX_BASE}/topics?${urlParams}`);
   if (!resp.ok) return [];
@@ -539,7 +519,6 @@ export interface AffiliationSuggestion {
 /** Search the OpenAlex /autocomplete/institutions endpoint. */
 export async function searchInstitutions(
   query: string,
-  params?: Pick<OpenAlexSearchParams, "email" | "apiKey">,
 ): Promise<OpenAlexInstitution[]> {
   if (!query.trim()) return [];
 
@@ -549,11 +528,6 @@ export async function searchInstitutions(
 
   const urlParams = new URLSearchParams();
   urlParams.set("q", query);
-  if (params?.apiKey) {
-    urlParams.set("api_key", params.apiKey);
-  } else {
-    urlParams.set("mailto", params?.email || CONTACT_EMAIL);
-  }
 
   const resp = await fetch(`${OPENALEX_BASE}/autocomplete/institutions?${urlParams}`);
   if (!resp.ok) return [];
@@ -579,7 +553,6 @@ export async function searchInstitutions(
 export async function searchAffiliations(
   institutionId: string,
   query: string,
-  params?: Pick<OpenAlexSearchParams, "email" | "apiKey">,
 ): Promise<AffiliationSuggestion[]> {
   if (!query.trim() || query.length < 2 || !institutionId) return [];
 
@@ -592,11 +565,6 @@ export async function searchAffiliations(
   urlParams.set("filter", `institutions.id:${instIdClean},raw_affiliation_strings.search:${query}`);
   urlParams.set("per_page", "50");
   urlParams.set("select", "authorships");
-  if (params?.apiKey) {
-    urlParams.set("api_key", params.apiKey);
-  } else {
-    urlParams.set("mailto", params?.email || CONTACT_EMAIL);
-  }
 
   const resp = await fetch(`${OPENALEX_BASE}/works?${urlParams}`);
   if (!resp.ok) return [];

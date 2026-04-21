@@ -13,6 +13,7 @@ import {
   FileText, Users, BookOpen, TrendingUp, Calendar,
   Download, FileDown, Loader2,
 } from "lucide-react";
+import { BRAND } from "@/lib/branding";
 import { toast } from "sonner";
 
 export default function ResumoPage() {
@@ -89,7 +90,7 @@ export default function ResumoPage() {
 
       // Summary
       const summary = [
-        `BibAnalize - Resumo da Análise`,
+        `${BRAND.name} - Resumo da Análise`,
         `Data: ${new Date().toLocaleDateString("pt-BR")}`,
         `Fonte: ${source === "openalex" ? "OpenAlex" : source === "wos" ? "Web of Science (API)" : "Web of Science"}`,
         fileName ? `Arquivo: ${fileName}` : "",

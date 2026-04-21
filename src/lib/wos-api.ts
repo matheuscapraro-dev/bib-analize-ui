@@ -44,7 +44,6 @@ export interface WosSearchParams {
   database?: string;
   sortField?: string;
   maxRecords?: number;
-  apiKey?: string;
   rawQuery?: string;
 }
 
@@ -187,7 +186,6 @@ export function buildWosQuery(params: WosSearchParams): string {
 // ---------------------------------------------------------------------------
 
 async function wosApiRequest(
-  apiKey: string | undefined,
   query: string,
   db: string,
   limit: number,
@@ -195,7 +193,6 @@ async function wosApiRequest(
   sortField: string,
 ): Promise<Record<string, unknown>> {
   const url = new URL(WOS_PROXY, window.location.origin);
-  if (apiKey) url.searchParams.set("apiKey", apiKey);
   url.searchParams.set("q", query);
   url.searchParams.set("db", db);
   url.searchParams.set("limit", String(Math.min(limit, PAGE_SIZE)));
@@ -218,8 +215,8 @@ async function wosApiRequest(
 // Public API
 // ---------------------------------------------------------------------------
 
-export async function getWosCount(apiKey: string | undefined, query: string, db = "WOS"): Promise<number> {
-  const data = await wosApiRequest(apiKey, query, db, 1, 1, "RS+D");
+export async function getWosCount(query: string, db = "WOS"): Promise<number> {
+  const data = await wosApiRequest(query, db, 1, 1, "RS+D");
   const meta = (data.metadata ?? {}) as Record<string, unknown>;
   return Number(meta.total ?? 0);
 }
@@ -235,7 +232,7 @@ export async function fetchWosWorks(
   const sortField = params.sortField ?? "RS+D";
   const maxRecords = params.maxRecords ?? 1000;
 
-  const firstPage = await wosApiRequest(params.apiKey, query, db, PAGE_SIZE, 1, sortField);
+  const firstPage = await wosApiRequest(query, db, PAGE_SIZE, 1, sortField);
   const meta = (firstPage.metadata ?? {}) as Record<string, unknown>;
   const total = Number(meta.total ?? 0);
   if (total === 0) return [];
@@ -250,7 +247,7 @@ export async function fetchWosWorks(
   for (let pg = 2; pg <= totalPages; pg++) {
     await new Promise((r) => setTimeout(r, 220)); // rate limit ~5 req/s
     try {
-      const pageData = await wosApiRequest(params.apiKey, query, db, PAGE_SIZE, pg, sortField);
+      const pageData = await wosApiRequest(query, db, PAGE_SIZE, pg, sortField);
       const pageHits = (pageData.hits ?? []) as Record<string, unknown>[];
       for (const doc of pageHits) {
         if (allRows.length >= toFetch) break;

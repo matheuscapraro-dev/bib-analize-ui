@@ -36,6 +36,8 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { BrandLogo } from "@/components/brand-logo";
+import { BRAND } from "@/lib/branding";
 
 type DataSource = "openalex" | "wos";
 type ProgramSearchMode = "affiliation" | "authorIds";
@@ -296,9 +298,9 @@ export default function ProgramasPage() {
       <header className="border-b bg-card">
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
           <div className="flex items-center gap-3">
-            <BarChart3 className="size-7 text-primary" />
+            <BrandLogo size="md" className="text-primary" />
             <div>
-              <h1 className="text-xl font-bold tracking-tight">BibAnalize</h1>
+              <h1 className="text-xl font-bold tracking-tight">{BRAND.name}</h1>
               <p className="text-xs text-muted-foreground">Programas de Pós-Graduação</p>
             </div>
           </div>

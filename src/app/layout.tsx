@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { BRAND } from "@/lib/branding";
 import { Providers } from "./providers";
 import "./globals.css";
 
@@ -7,13 +8,12 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "BibAnalize – Análise Bibliométrica",
-  description:
-    "Plataforma de análise bibliométrica com dados Web of Science e OpenAlex. Desenvolvido por Matheus A. Capraro sob orientação da Prof.ª Dr.ª Ana Cristina K. Vendramin — PPGCA/UTFPR.",
-  authors: [
-    { name: "Matheus A. Capraro" },
-    { name: "Ana Cristina K. Vendramin" },
-  ],
+  title: `${BRAND.name} – ${BRAND.tagline}`,
+  description: BRAND.description,
+  authors: BRAND.authors as Metadata["authors"],
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
